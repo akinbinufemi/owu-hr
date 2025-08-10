@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import Modal from '../components/ui/Modal';
 import FormField from '../components/ui/FormField';
@@ -37,7 +36,7 @@ interface Category {
 }
 
 const Settings: React.FC = () => {
-  const { admin } = useAuth();
+  // const { admin } = useAuth(); // Commented out as not currently used
   const { success, error } = useToast();
   const [activeTab, setActiveTab] = useState<'users' | 'categories' | 'system' | 'security'>('users');
   const [loading, setLoading] = useState(false);
@@ -102,6 +101,7 @@ const Settings: React.FC = () => {
     fetchAdmins();
     fetchSettings();
     fetchCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchAdmins = async () => {

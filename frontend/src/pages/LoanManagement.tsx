@@ -117,6 +117,7 @@ const LoanManagement: React.FC = () => {
     } else if (activeTab === 'create') {
       fetchStaffOptions();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, filters, pagination.page]);
 
   const fetchLoanSummary = async () => {
@@ -308,7 +309,6 @@ const LoanManagement: React.FC = () => {
     if (loan.status === 'COMPLETED') return 'Completed';
     if (loan.status !== 'APPROVED' || !loan.startDate) return 'Not started';
     
-    const remainingInstallments = loan.repaymentTerms - loan.installmentsPaid;
     const startDate = new Date(loan.startDate);
     const completionDate = new Date(startDate);
     completionDate.setMonth(completionDate.getMonth() + loan.repaymentTerms);

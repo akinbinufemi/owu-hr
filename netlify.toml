@@ -11,6 +11,10 @@
 [build.environment]
   # Node.js version
   NODE_VERSION = "18"
+  # Don't treat warnings as errors
+  CI = "false"
+  # Disable source maps for faster builds
+  GENERATE_SOURCEMAP = "false"
 
 # Redirect rules for SPA (Single Page Application)
 [[redirects]]

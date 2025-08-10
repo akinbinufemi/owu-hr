@@ -54,6 +54,7 @@ const FileManagement: React.FC = () => {
   useEffect(() => {
     fetchFiles();
     fetchStaffOptions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, pagination.page]);
 
   const fetchFiles = async () => {

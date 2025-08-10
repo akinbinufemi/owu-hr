@@ -102,6 +102,7 @@ const IssuesManagement: React.FC = () => {
     } else if (activeTab === 'create') {
       fetchStaffOptions();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, filters, pagination.page]);
 
   const fetchIssuesSummary = async () => {

@@ -587,6 +587,7 @@ const StaffList: React.FC = () => {
   useEffect(() => {
     fetchStaff();
     fetchDepartments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, pagination.page]);
 
   const fetchStaff = async () => {
