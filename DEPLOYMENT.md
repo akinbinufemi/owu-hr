@@ -1,26 +1,78 @@
-# Deployment Guide
+# 🚀 Complete HRMS Deployment Guide
 
-## Frontend Deployment (Netlify)
+## ❗ Important: Frontend and Backend Must Be Deployed Separately
 
-### Prerequisites
-- GitHub account with the repository
-- Netlify account
+**Netlify only hosts static sites** (your React frontend). Your Node.js backend needs a different service that supports server-side applications.
 
-### Steps
+## 🎯 Recommended: Split Deployment Strategy
 
-1. **Connect to Netlify**
-   - Go to [Netlify](https://netlify.com)
-   - Click "New site from Git"
-   - Choose GitHub and select this repository
+### Why Split Frontend and Backend?
 
-2. **Configure Build Settings**
-   - Build command: `npm run build`
-   - Publish directory: `frontend/build`
-   - Base directory: `frontend`
+- **Netlify**: Optimized for static sites (React frontend) - FREE
+- **Railway/Render**: Optimized for server applications (Node.js backend) - FREE tier
+- **Better Performance**: Each service optimized for its purpose
+- **Cost Effective**: Use free tiers of both services
+- **Scalability**: Scale frontend and backend independently
 
-3. **Environment Variables**
-   - Add `REACT_APP_API_URL` with your backend URL
-   - For example: `https://your-backend.herokuapp.com/api`
+---
+
+## 🚀 Method 1: Netlify (Frontend) + Railway (Backend) - RECOMMENDED
+
+### Step 1: Deploy Backend to Railway
+
+1. **Go to [Railway](https://railway.app)**
+2. **Sign up/Login** with GitHub
+3. **Create New Project** → **Deploy from GitHub repo**
+4. **Select your repository**: `akinbinufemi/owu-hr`
+5. **Configure Service**:
+   - **Root Directory**: `backend`
+   - **Build Command**: `npm install`
+   - **Start Command**: `npm start`
+
+6. **Add Environment Variables**:
+   ```
+   DATABASE_URL=postgresql://... (Railway will auto-provide this)
+   JWT_SECRET=your-super-secret-jwt-key-here-minimum-32-chars
+   PORT=5000
+   FRONTEND_URL=https://your-netlify-app.netlify.app
+   NODE_ENV=production
+   ```
+
+7. **Deploy**: Railway will give you a URL like `https://your-app.railway.app`
+
+### Step 2: Deploy Frontend to Netlify
+
+1. **Go to [Netlify](https://netlify.com)**
+2. **New site from Git** → **GitHub** → **Select your repo**
+3. **Configure Build Settings**:
+   - **Base directory**: `frontend`
+   - **Build command**: `npm run build`
+   - **Publish directory**: `frontend/build`
+
+4. **Add Environment Variable**:
+   ```
+   REACT_APP_API_URL=https://your-app.railway.app/api
+   ```
+
+5. **Deploy**: Netlify will give you a URL like `https://your-app.netlify.app`
+
+### Step 3: Initialize Database
+
+1. **In Railway dashboard**, open your backend service terminal
+2. **Run migrations**:
+   ```bash
+   npx prisma migrate deploy
+   ```
+3. **Seed database**:
+   ```bash
+   npx prisma db seed
+   ```
+
+### Step 4: Update CORS Settings
+
+1. **Go back to Railway** and update the `FRONTEND_URL` environment variable
+2. **Set it to your actual Netlify URL**: `https://your-app.netlify.app`
+3. **Redeploy** the backend service
 
 ### Backend Deployment Options
 

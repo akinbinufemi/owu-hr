@@ -202,20 +202,35 @@ owu-hr/
 └── README.md
 ```
 
-## 🌐 Deployment
+## 🌐 Deployment Strategy
 
-The complete HRMS system is ready for deployment on various platforms:
+### ⚠️ Important: Split Deployment Required
 
-### Frontend (Netlify - Recommended)
+**Netlify only hosts static sites** (React frontend). Your Node.js backend needs a separate service.
+
+### 🎯 Recommended Approach: Netlify + Railway
+
+| Component | Platform | Cost | Purpose |
+|-----------|----------|------|---------|
+| **Frontend** | Netlify | FREE | React app, CDN, SSL |
+| **Backend + Database** | Railway | FREE tier | Node.js API, PostgreSQL |
+
+### 🚀 Quick Deploy Links
+
+**Step 1: Deploy Backend**
+- Go to [Railway](https://railway.app) → Deploy from GitHub → Select this repo
+- Set root directory to `backend`
+- Add environment variables (see [deploy-guide.md](deploy-guide.md))
+
+**Step 2: Deploy Frontend**
 [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/akinbinufemi/owu-hr)
+- Set base directory to `frontend`
+- Add `REACT_APP_API_URL` pointing to your Railway backend
 
-### Backend Options
-- **Railway** (Free tier available)
-- **Render** (Free tier available) 
-- **Heroku** (Paid)
-- **DigitalOcean App Platform**
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
+### 📋 Complete Guides
+- **Quick Start**: [deploy-guide.md](deploy-guide.md) (10 minutes total)
+- **Detailed Instructions**: [DEPLOYMENT.md](DEPLOYMENT.md)
+- **Alternative Platforms**: Render, Vercel, Heroku options included
 
 ## 🔐 Demo System
 
