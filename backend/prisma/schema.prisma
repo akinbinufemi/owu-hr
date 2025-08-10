@@ -1,0 +1,357 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  fullName  String
+  role      AdminRole @default(ADMIN)
+  permissions String[] @default([])
+  isActive  Boolean  @default(true)
+  lastLogin DateTime?
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  auditTrails AuditTrail[]
+  issues      Issue[]
+  createdByAdmin Admin? @relation("AdminCreatedBy", fields: [createdBy], references: [id])
+  createdAdmins Admin[] @relation("AdminCreatedBy")
+
+  @@map("admins")
+}
+
+model Staff {
+  id         String @id @default(cuid())
+  employeeId String @unique
+
+  // Personal Information
+  fullName      String
+  dateOfBirth   DateTime
+  gender        Gender
+  maritalStatus MaritalStatus
+  nationality   String
+  photo         String?
+
+  // Contact Information
+  address       String
+  personalEmail String
+  workEmail     String
+  phoneNumbers  String[]
+
+  // Job Information
+  jobTitle            String
+  department          String
+  positionId          String?
+  departmentId        String?
+  jobTypeId           String?
+  reportingManagerId  String?
+  dateOfJoining       DateTime
+  employmentType      EmploymentType
+  workLocation        String
+
+  // Emergency Contact
+  emergencyContactName         String
+  emergencyContactRelationship String
+  emergencyContactPhone        String
+
+  // System fields
+  isExternallyPaid Boolean  @default(false)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  reportingManager Staff?           @relation("StaffHierarchy", fields: [reportingManagerId], references: [id])
+  subordinates     Staff[]          @relation("StaffHierarchy")
+  position         Category?        @relation("StaffPosition", fields: [positionId], references: [id])
+  departmentCategory Category?      @relation("StaffDepartment", fields: [departmentId], references: [id])
+  jobType          Category?        @relation("StaffJobType", fields: [jobTypeId], references: [id])
+  salaryStructures SalaryStructure[]
+  loans            Loan[]
+  documents        Document[]
+  issues           Issue[]
+  auditTrails      AuditTrail[]
+
+  @@map("staff")
+}
+
+model SalaryStructure {
+  id      String @id @default(cuid())
+  staffId String
+
+  // Basic salary
+  basicSalary Decimal @db.Decimal(10, 2)
+
+  // Allowances
+  housingAllowance   Decimal @default(0) @db.Decimal(10, 2)
+  transportAllowance Decimal @default(0) @db.Decimal(10, 2)
+  medicalAllowance   Decimal @default(0) @db.Decimal(10, 2)
+  otherAllowances    Json    @default("[]") // Array of {name: string, amount: number}
+
+  // Deductions
+  taxDeduction     Decimal @default(0) @db.Decimal(10, 2)
+  pensionDeduction Decimal @default(0) @db.Decimal(10, 2)
+  loanDeduction    Decimal @default(0) @db.Decimal(10, 2)
+  otherDeductions  Json    @default("[]") // Array of {name: string, amount: number}
+
+  effectiveDate DateTime @default(now())
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@map("salary_structures")
+}
+
+model Loan {
+  id               String     @id @default(cuid())
+  staffId          String
+  amount           Decimal    @db.Decimal(10, 2)
+  reason           String
+  interestRate     Decimal    @default(0) @db.Decimal(5, 2)
+  repaymentTerms   Int // months
+  monthlyDeduction Decimal    @db.Decimal(10, 2)
+  status           LoanStatus @default(PENDING)
+  approvedDate     DateTime?
+  startDate        DateTime?
+  outstandingBalance Decimal  @db.Decimal(10, 2)
+  installmentsPaid Int        @default(0)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  // Relations
+  staff      Staff           @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  repayments LoanRepayment[]
+
+  @@map("loans")
+}
+
+model LoanRepayment {
+  id            String   @id @default(cuid())
+  loanId        String
+  amount        Decimal  @db.Decimal(10, 2)
+  paymentDate   DateTime @default(now())
+  paymentMethod String   @default("SALARY_DEDUCTION")
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  // Relations
+  loan Loan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@map("loan_repayments")
+}
+
+model Issue {
+  id           String       @id @default(cuid())
+  ticketNumber String       @unique
+  staffId      String?
+  categoryId   String?
+  category     IssueCategory
+  title        String
+  description  String
+  status       IssueStatus  @default(OPEN)
+  priority     IssuePriority @default(MEDIUM)
+  assignedTo   String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // Relations
+  staff           Staff?         @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  admin           Admin          @relation(fields: [assignedTo], references: [id])
+  issueCategory   Category?      @relation(fields: [categoryId], references: [id])
+  comments        IssueComment[]
+
+  @@map("issues")
+}
+
+model IssueComment {
+  id        String   @id @default(cuid())
+  issueId   String
+  content   String
+  createdBy String
+  createdAt DateTime @default(now())
+
+  // Relations
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@map("issue_comments")
+}
+
+model Document {
+  id          String      @id @default(cuid())
+  staffId     String
+  fileName    String
+  originalName String
+  fileType    String
+  fileSize    Int
+  filePath    String
+  category    DocumentCategory
+  uploadedAt  DateTime    @default(now())
+
+  // Relations
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+model AuditTrail {
+  id         String     @id @default(cuid())
+  entityType EntityType
+  entityId   String
+  action     AuditAction
+  changes    Json // {field: {old: value, new: value}}
+  performedBy String
+  timestamp  DateTime   @default(now())
+
+  // Relations
+  admin Admin @relation(fields: [performedBy], references: [id])
+  staff Staff? @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@map("audit_trails")
+}
+
+model PayrollSchedule {
+  id        String   @id @default(cuid())
+  month     Int
+  year      Int
+  staffData Json // Array of staff payroll data
+  totalAmount Decimal @db.Decimal(12, 2)
+  generatedBy String
+  generatedAt DateTime @default(now())
+  filePath    String?
+
+  @@unique([month, year])
+  @@map("payroll_schedules")
+}
+
+// Enums
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+}
+
+enum LoanStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+}
+
+enum IssueCategory {
+  WORKPLACE_CONFLICT
+  PAYROLL_DISCREPANCY
+  POLICY_VIOLATION
+  PERFORMANCE_ISSUE
+  ATTENDANCE_ISSUE
+  OTHER
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum IssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum DocumentCategory {
+  CV
+  OFFER_LETTER
+  CONTRACT
+  IDENTIFICATION
+  CERTIFICATE
+  OTHER
+}
+
+enum EntityType {
+  STAFF
+  SALARY
+  LOAN
+  ISSUE
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  HR_MANAGER
+  VIEWER
+}
+
+model SystemSettings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  category    String   @default("general")
+  updatedBy   String
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@map("system_settings")
+}
+
+model Category {
+  id          String       @id @default(cuid())
+  name        String
+  type        CategoryType
+  description String?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  staffPositions     Staff[] @relation("StaffPosition")
+  staffDepartments   Staff[] @relation("StaffDepartment")
+  staffJobTypes      Staff[] @relation("StaffJobType")
+  issues             Issue[]
+
+  @@unique([name, type])
+  @@map("categories")
+}
+
+enum CategoryType {
+  POSITION
+  DEPARTMENT
+  JOB_TYPE
+  ISSUE_CATEGORY
+}

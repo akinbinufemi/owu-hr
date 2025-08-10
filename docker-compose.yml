@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: owu-hrms-db
+    environment:
+      POSTGRES_DB: owu_palace_hrms
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/prisma/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - owu-hrms-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: owu-hrms-backend
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:password123@postgres:5432/owu_palace_hrms?schema=public
+      JWT_SECRET: owu-palace-hrms-super-secret-jwt-key-2025
+      PORT: 5000
+    ports:
+      - "5000:5000"
+    depends_on:
+      - postgres
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - owu-hrms-network
+    command: npm run dev
+
+  # Frontend React App
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: owu-hrms-frontend
+    environment:
+      REACT_APP_API_URL: http://localhost:5000/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - owu-hrms-network
+    command: npm start
+
+volumes:
+  postgres_data:
+
+networks:
+  owu-hrms-network:
+    driver: bridge
