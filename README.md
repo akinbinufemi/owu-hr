@@ -1,6 +1,11 @@
-# Owu Palace Staff - HRMS
+# Owu Palace HRMS
 
-A comprehensive Human Resources Management System designed for efficient staff management with a mobile-first, minimalist design.
+A comprehensive Human Resource Management System for Owu Palace, built with React.js, Node.js, and PostgreSQL.
+
+## 🚀 Live Demo
+
+- **Frontend**: [Deploy on Netlify](https://app.netlify.com/start/deploy?repository=https://github.com/akinbinufemi/owu-hr)
+- **Demo Credentials**: admin@owupalace.com / admin123
 
 ## Features
 
