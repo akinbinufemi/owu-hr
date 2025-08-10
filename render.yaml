@@ -7,8 +7,8 @@ services:
     name: owu-palace-backend
     env: node
     plan: free
-    buildCommand: npm install && npm run deploy
-    startCommand: npm start
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npm run start:prod
     rootDir: backend
     healthCheckPath: /api/health
     envVars:
