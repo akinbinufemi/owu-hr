@@ -17,7 +17,7 @@ services:
       - key: JWT_SECRET
         value: owu-palace-hrms-super-secret-jwt-key-2025-production
       - key: FRONTEND_URL
-        value: https://owu-palace-hrms.netlify.app
+        value: https://owuhrms.netlify.app
       - key: DATABASE_URL
         value: postgresql://neondb_owner:npg_Qi8vM6ZFwHfa@ep-ancient-fog-a2qsngbk-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require
       - key: FILE_ENCRYPTION_KEY
