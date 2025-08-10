@@ -18,7 +18,7 @@
 
 ## 🚀 Method 1: Netlify (Frontend) + Render (Backend) - RECOMMENDED & FREE
 
-### Step 1: Deploy Backend to Render
+### Step 1: Deploy Backend to Render (Using Neon DB)
 
 1. **Go to [Render](https://render.com)**
 2. **Sign up/Login** with GitHub
@@ -27,24 +27,26 @@
 5. **Configure Service**:
    - **Name**: `owu-palace-backend`
    - **Root Directory**: `backend` ⚠️ **CRITICAL: Must specify this**
-   - **Build Command**: `npm install`
+   - **Build Command**: `npm install && npm run deploy`
    - **Start Command**: `npm start`
    - **Plan**: Free
 
-6. **Create PostgreSQL Database**:
-   - **New** → **PostgreSQL** → **Name**: `owu-palace-db` → **Plan**: Free
-   - **Copy the Internal Database URL**
-
-7. **Add Environment Variables to Web Service**:
+6. **Add Environment Variables to Web Service**:
    ```
-   DATABASE_URL=postgresql://owu_palace_user:xxx@dpg-xxx.oregon-postgres.render.com/owu_palace_db
-   JWT_SECRET=your-super-secret-jwt-key-here-minimum-32-chars
+   DATABASE_URL=postgresql://neondb_owner:npg_Qi8vM6ZFwHfa@ep-ancient-fog-a2qsngbk-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require
+   JWT_SECRET=owu-palace-hrms-super-secret-jwt-key-2025-production
    PORT=10000
    FRONTEND_URL=https://your-netlify-app.netlify.app
    NODE_ENV=production
+   FILE_ENCRYPTION_KEY=your-super-secret-encryption-key-change-in-production
+   MAX_FILE_SIZE=10485760
+   UPLOAD_PATH=./uploads
+   BCRYPT_ROUNDS=12
    ```
 
-8. **Deploy**: Render will give you a URL like `https://owu-palace-backend.onrender.com`
+7. **Deploy**: Render will give you a URL like `https://owu-palace-backend.onrender.com`
+
+**Note**: We're using Neon DB (external PostgreSQL) instead of Render's database to avoid shell command limitations on the free tier.
 
 ### Step 2: Deploy Frontend to Netlify
 
@@ -62,17 +64,14 @@
 
 5. **Deploy**: Netlify will give you a URL like `https://owu-palace-hrms.netlify.app`
 
-### Step 3: Initialize Database
+### Step 3: Database Setup (Automatic with Neon)
 
-1. **In Render dashboard**, open your backend service **Shell**
-2. **Run migrations**:
-   ```bash
-   npx prisma migrate deploy
-   ```
-3. **Seed database**:
-   ```bash
-   npx prisma db seed
-   ```
+The database setup is now automatic! The build command `npm run deploy` will:
+1. Generate Prisma client
+2. Run database migrations
+3. Build the application
+
+**No manual shell commands needed** - everything happens during the build process.
 
 ### Step 4: Update CORS Settings
 
