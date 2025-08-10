@@ -10,8 +10,8 @@ RUN apk add --no-cache openssl
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (without postinstall script running)
-RUN npm ci --only=production
+# Install all dependencies (including devDependencies for build)
+RUN npm ci
 
 # Copy Prisma schema first
 COPY prisma ./prisma/
@@ -25,6 +25,9 @@ COPY . .
 # Build the application
 RUN npm run build
 
+# Remove devDependencies to reduce image size
+RUN npm prune --production
+
 # Create uploads directory
 RUN mkdir -p uploads
 
@@ -32,4 +35,4 @@ RUN mkdir -p uploads
 EXPOSE 5001
 
 # Start the application
-CMD ["npm", "start"]
+CMD ["npm", "run", "start:prod"]
