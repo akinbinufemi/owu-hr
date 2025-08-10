@@ -3,27 +3,35 @@ import Joi from 'joi';
 import prisma from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 
+// Check if user has permission
+const hasPermission = (admin: any, requiredPermission: string): boolean => {
+  if (!admin) return false;
+  // SUPER_ADMIN and ADMIN have all permissions
+  if (admin.role === 'SUPER_ADMIN' || admin.role === 'ADMIN') return true;
+  return admin.permissions?.includes(requiredPermission) || false;
+};
+
 // Validation schemas
 const createStaffSchema = Joi.object({
   employeeId: Joi.string().required(),
   fullName: Joi.string().required(),
-  dateOfBirth: Joi.date().required(),
-  gender: Joi.string().valid('MALE', 'FEMALE', 'OTHER').required(),
-  maritalStatus: Joi.string().valid('SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED').required(),
-  nationality: Joi.string().required(),
-  address: Joi.string().required(),
-  personalEmail: Joi.string().email().required(),
-  workEmail: Joi.string().email().required(),
+  dateOfBirth: Joi.date().optional().allow(null, ''),
+  gender: Joi.string().valid('MALE', 'FEMALE', 'OTHER').default('MALE'),
+  maritalStatus: Joi.string().valid('SINGLE', 'MARRIED', 'DIVORCED', 'WIDOWED').default('SINGLE'),
+  nationality: Joi.string().optional().allow(''),
+  address: Joi.string().optional().allow(''),
+  personalEmail: Joi.string().email().optional().allow(''),
+  workEmail: Joi.string().email().optional().allow(''),
   phoneNumbers: Joi.array().items(Joi.string()).min(1).required(),
-  jobTitle: Joi.string().required(),
-  department: Joi.string().required(),
+  jobTitle: Joi.string().optional().allow(''),
+  department: Joi.string().optional().allow(''),
   reportingManagerId: Joi.string().optional().allow(null, ''),
-  dateOfJoining: Joi.date().required(),
-  employmentType: Joi.string().valid('FULL_TIME', 'PART_TIME', 'CONTRACT').required(),
-  workLocation: Joi.string().required(),
-  emergencyContactName: Joi.string().required(),
-  emergencyContactRelationship: Joi.string().required(),
-  emergencyContactPhone: Joi.string().required(),
+  dateOfJoining: Joi.date().optional().allow(null, ''),
+  employmentType: Joi.string().valid('FULL_TIME', 'PART_TIME', 'CONTRACT').optional().allow(''),
+  workLocation: Joi.string().optional().allow(''),
+  emergencyContactName: Joi.string().optional().allow(''),
+  emergencyContactRelationship: Joi.string().optional().allow(''),
+  emergencyContactPhone: Joi.string().optional().allow(''),
   isExternallyPaid: Joi.boolean().default(false)
 });
 
@@ -31,18 +39,16 @@ const updateStaffSchema = createStaffSchema.fork(['employeeId'], (schema) => sch
 
 export const getAllStaff = async (req: AuthRequest, res: Response) => {
   try {
-    // Skip permission check for SUPER_ADMIN
-    if (req.admin?.role !== 'SUPER_ADMIN') {
-      if (!hasPermission(req.admin, 'manage_staff')) {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: 'INSUFFICIENT_PERMISSIONS',
-            message: 'You do not have permission to view staff members'
-          },
-          timestamp: new Date().toISOString()
-        });
-      }
+    // Check permission
+    if (!hasPermission(req.admin, 'manage_staff')) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'INSUFFICIENT_PERMISSIONS',
+          message: 'You do not have permission to view staff members'
+        },
+        timestamp: new Date().toISOString()
+      });
     }
 
     const { 
@@ -204,26 +210,18 @@ export const getStaffById = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// Check if user has permission
-const hasPermission = (admin: any, requiredPermission: string): boolean => {
-  if (admin.role === 'SUPER_ADMIN') return true;
-  return admin.permissions?.includes(requiredPermission) || false;
-};
-
 export const createStaff = async (req: AuthRequest, res: Response) => {
   try {
-    // Skip permission check for SUPER_ADMIN
-    if (req.admin?.role !== 'SUPER_ADMIN') {
-      if (!hasPermission(req.admin, 'manage_staff')) {
-        return res.status(403).json({
-          success: false,
-          error: {
-            code: 'INSUFFICIENT_PERMISSIONS',
-            message: 'You do not have permission to create staff members'
-          },
-          timestamp: new Date().toISOString()
-        });
-      }
+    // Check permission
+    if (!hasPermission(req.admin, 'manage_staff')) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'INSUFFICIENT_PERMISSIONS',
+          message: 'You do not have permission to create staff members'
+        },
+        timestamp: new Date().toISOString()
+      });
     }
 
     // Validate request body
@@ -279,8 +277,8 @@ export const createStaff = async (req: AuthRequest, res: Response) => {
       data: {
         ...value,
         reportingManagerId: value.reportingManagerId || null,
-        dateOfBirth: new Date(value.dateOfBirth),
-        dateOfJoining: new Date(value.dateOfJoining)
+        dateOfBirth: value.dateOfBirth ? new Date(value.dateOfBirth) : null,
+        dateOfJoining: value.dateOfJoining ? new Date(value.dateOfJoining) : null
       },
       include: {
         reportingManager: {

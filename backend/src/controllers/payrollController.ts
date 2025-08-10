@@ -294,6 +294,7 @@ export const generatePayroll = async (req: AuthRequest, res: Response) => {
         loans: {
           where: {
             status: 'APPROVED',
+            isPaused: false,
             outstandingBalance: {
               gt: 0
             }
@@ -331,12 +332,18 @@ export const generatePayroll = async (req: AuthRequest, res: Response) => {
       const taxDeduction = Number(salaryStructure.taxDeduction);
       const pensionDeduction = Number(salaryStructure.pensionDeduction);
       
-      // Calculate loan deductions
+      // Calculate loan deductions (only for loans that have started)
       let loanDeduction = 0;
+      const currentDate = new Date(year, month - 1, 1); // First day of payroll month
+      
       for (const loan of staff.loans) {
-        const monthlyDeduction = Number(loan.monthlyDeduction);
-        const outstandingBalance = Number(loan.outstandingBalance);
-        loanDeduction += Math.min(monthlyDeduction, outstandingBalance);
+        // Check if loan deduction should start this month
+        const startDate = loan.startDate ? new Date(loan.startDate) : new Date(loan.createdAt);
+        if (startDate <= currentDate) {
+          const monthlyDeduction = Number(loan.monthlyDeduction);
+          const outstandingBalance = Number(loan.outstandingBalance);
+          loanDeduction += Math.min(monthlyDeduction, outstandingBalance);
+        }
       }
 
       // Parse other deductions
@@ -375,30 +382,38 @@ export const generatePayroll = async (req: AuthRequest, res: Response) => {
       payrollData.push(staffPayroll);
       totalAmount += netSalary;
 
-      // Update loan balances
+      // Update loan balances (only for loans that have started)
       for (const loan of staff.loans) {
-        const monthlyDeduction = Number(loan.monthlyDeduction);
-        const outstandingBalance = Number(loan.outstandingBalance);
-        const deductionAmount = Math.min(monthlyDeduction, outstandingBalance);
-        
-        if (deductionAmount > 0) {
-          await prisma.loan.update({
-            where: { id: loan.id },
-            data: {
-              outstandingBalance: outstandingBalance - deductionAmount,
-              installmentsPaid: loan.installmentsPaid + 1
-            }
-          });
+        // Check if loan deduction should start this month
+        const startDate = loan.startDate ? new Date(loan.startDate) : new Date(loan.createdAt);
+        if (startDate <= currentDate) {
+          const monthlyDeduction = Number(loan.monthlyDeduction);
+          const outstandingBalance = Number(loan.outstandingBalance);
+          const deductionAmount = Math.min(monthlyDeduction, outstandingBalance);
+          
+          if (deductionAmount > 0) {
+            const newOutstandingBalance = outstandingBalance - deductionAmount;
+            const newStatus = newOutstandingBalance <= 0 ? 'COMPLETED' : loan.status;
+            
+            await prisma.loan.update({
+              where: { id: loan.id },
+              data: {
+                outstandingBalance: newOutstandingBalance,
+                installmentsPaid: loan.installmentsPaid + 1,
+                status: newStatus as any
+              }
+            });
 
-          // Create loan repayment record
-          await prisma.loanRepayment.create({
-            data: {
-              loanId: loan.id,
-              amount: deductionAmount,
-              paymentMethod: 'SALARY_DEDUCTION',
-              notes: `Payroll deduction for ${month}/${year}`
-            }
-          });
+            // Create loan repayment record
+            await prisma.loanRepayment.create({
+              data: {
+                loanId: loan.id,
+                amount: deductionAmount,
+                paymentMethod: 'SALARY_DEDUCTION',
+                notes: `Payroll deduction for ${month}/${year}`
+              }
+            });
+          }
         }
       }
     }

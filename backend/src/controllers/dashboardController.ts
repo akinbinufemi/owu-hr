@@ -113,6 +113,7 @@ export const getDashboardNotifications = async (req: AuthRequest, res: Response)
 
     // Filter birthdays in the next 7 days
     const birthdayNotifications = upcomingBirthdays.filter(staff => {
+      if (!staff.dateOfBirth) return false;
       const birthday = new Date(staff.dateOfBirth);
       const thisYear = now.getFullYear();
       const birthdayThisYear = new Date(thisYear, birthday.getMonth(), birthday.getDate());
@@ -148,6 +149,7 @@ export const getDashboardNotifications = async (req: AuthRequest, res: Response)
     });
 
     const anniversaryNotifications = upcomingAnniversaries.filter(staff => {
+      if (!staff.dateOfJoining) return false;
       const joinDate = new Date(staff.dateOfJoining);
       const thisYear = now.getFullYear();
       const anniversaryThisYear = new Date(thisYear, joinDate.getMonth(), joinDate.getDate());

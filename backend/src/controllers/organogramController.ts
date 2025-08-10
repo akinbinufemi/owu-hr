@@ -6,10 +6,10 @@ interface OrganogramNode {
   id: string;
   employeeId: string;
   fullName: string;
-  jobTitle: string;
-  department: string;
+  jobTitle: string | null;
+  department: string | null;
   photo?: string;
-  workEmail: string;
+  workEmail: string | null;
   reportingManagerId?: string;
   children: OrganogramNode[];
   level: number;
@@ -89,10 +89,14 @@ export const getOrganogram = async (req: AuthRequest, res: Response) => {
       nodes.forEach(node => {
         if (node.children.length > 0) {
           node.children.sort((a, b) => {
-            if (a.department !== b.department) {
-              return a.department.localeCompare(b.department);
+            const aDept = a.department || 'Unassigned';
+            const bDept = b.department || 'Unassigned';
+            if (aDept !== bDept) {
+              return aDept.localeCompare(bDept);
             }
-            return a.jobTitle.localeCompare(b.jobTitle);
+            const aTitle = a.jobTitle || 'No Title';
+            const bTitle = b.jobTitle || 'No Title';
+            return aTitle.localeCompare(bTitle);
           });
           sortChildren(node.children);
         }
@@ -104,7 +108,8 @@ export const getOrganogram = async (req: AuthRequest, res: Response) => {
     // Calculate statistics
     const totalEmployees = allStaff.length;
     const departmentCounts = allStaff.reduce((acc, staff) => {
-      acc[staff.department] = (acc[staff.department] || 0) + 1;
+      const dept = staff.department || 'Unassigned';
+      acc[dept] = (acc[dept] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 

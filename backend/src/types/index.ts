@@ -60,14 +60,18 @@ export interface Loan {
   staffId: string;
   amount: number;
   reason: string;
-  interestRate: number;
   repaymentTerms: number;
   monthlyDeduction: number;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
   approvedDate?: Date;
-  startDate?: Date;
+  startDate?: Date; // Start month of deduction
   outstandingBalance: number;
   installmentsPaid: number;
+  statusComments?: string; // Comments when status is changed
+  updatedBy?: string; // Admin who last updated the loan
+  isPaused?: boolean; // Pause loan repayment
+  pausedAt?: Date; // When loan was paused
+  pauseReason?: string; // Reason for pausing
   createdAt: Date;
   updatedAt: Date;
 }
@@ -199,8 +203,14 @@ export interface CreateLoanRequest {
   staffId: string;
   amount: number;
   reason: string;
-  interestRate?: number;
   repaymentTerms: number;
+  startDate?: string; // Start month of deduction
+}
+
+export interface UpdateLoanStatusRequest {
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
+  statusComments: string;
+  startDate?: string;
 }
 
 export interface CreateIssueRequest {

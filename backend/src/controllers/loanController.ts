@@ -8,26 +8,40 @@ const createLoanSchema = Joi.object({
   staffId: Joi.string().required(),
   amount: Joi.number().positive().required(),
   reason: Joi.string().required(),
-  interestRate: Joi.number().min(0).max(100).default(0),
   repaymentTerms: Joi.number().integer().positive().required(),
-  monthlyDeduction: Joi.number().positive().optional()
+  monthlyDeduction: Joi.number().positive().optional(),
+  startDate: Joi.date().optional() // Start month of deduction
 });
 
 const updateLoanSchema = Joi.object({
   status: Joi.string().valid('PENDING', 'APPROVED', 'REJECTED', 'COMPLETED').optional(),
+  statusComments: Joi.string().optional(),
   approvedDate: Joi.date().optional(),
   startDate: Joi.date().optional(),
   amount: Joi.number().positive().optional(),
   reason: Joi.string().optional(),
-  interestRate: Joi.number().min(0).max(100).optional(),
-  repaymentTerms: Joi.number().integer().positive().optional(),
-  monthlyDeduction: Joi.number().positive().optional()
+  repaymentTerms: Joi.number().integer().positive().optional()
 });
 
 const processRepaymentSchema = Joi.object({
   amount: Joi.number().positive().required(),
   paymentMethod: Joi.string().default('MANUAL_PAYMENT'),
   notes: Joi.string().optional()
+});
+
+const updateLoanStatusSchema = Joi.object({
+  status: Joi.string().valid('PENDING', 'APPROVED', 'REJECTED', 'COMPLETED').required(),
+  statusComments: Joi.string().required(),
+  startDate: Joi.date().optional()
+});
+
+const pauseLoanSchema = Joi.object({
+  isPaused: Joi.boolean().required(),
+  pauseReason: Joi.string().when('isPaused', {
+    is: true,
+    then: Joi.required(),
+    otherwise: Joi.optional()
+  })
 });
 
 export const getAllLoans = async (req: AuthRequest, res: Response) => {
@@ -212,27 +226,18 @@ export const createLoan = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Calculate monthly deduction if not provided
-    let monthlyDeduction = value.monthlyDeduction;
-    if (!monthlyDeduction) {
-      const principal = value.amount;
-      const rate = value.interestRate / 100 / 12; // Monthly interest rate
-      const terms = value.repaymentTerms;
-      
-      if (rate > 0) {
-        // Calculate EMI using formula: EMI = P * r * (1 + r)^n / ((1 + r)^n - 1)
-        monthlyDeduction = (principal * rate * Math.pow(1 + rate, terms)) / (Math.pow(1 + rate, terms) - 1);
-      } else {
-        // Simple division if no interest
-        monthlyDeduction = principal / terms;
-      }
-    }
+    // Use provided monthly deduction or calculate it (no interest rate)
+    const monthlyDeduction = value.monthlyDeduction || (value.amount / value.repaymentTerms);
 
     // Create loan
     const loan = await prisma.loan.create({
       data: {
-        ...value,
+        staffId: value.staffId,
+        amount: value.amount,
+        reason: value.reason,
+        repaymentTerms: value.repaymentTerms,
         monthlyDeduction,
+        startDate: value.startDate,
         outstandingBalance: value.amount
       },
       include: {
@@ -303,26 +308,28 @@ export const updateLoan = async (req: AuthRequest, res: Response) => {
 
     // Prepare update data
     const updateData: any = { ...value };
+    
+    // Set updatedBy to current admin
+    updateData.updatedBy = req.admin?.id;
 
     // If approving the loan, set approved date and start date
     if (value.status === 'APPROVED' && existingLoan.status !== 'APPROVED') {
       updateData.approvedDate = new Date();
       if (!value.startDate) {
-        updateData.startDate = new Date();
+        // Default start date to next month if not specified
+        const nextMonth = new Date();
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        nextMonth.setDate(1); // First day of next month
+        updateData.startDate = nextMonth;
       }
     }
 
-    // Recalculate monthly deduction if amount or terms changed
-    if (value.amount || value.repaymentTerms || value.interestRate) {
+    // Recalculate monthly deduction if amount or terms changed (no interest)
+    if (value.amount || value.repaymentTerms) {
       const amount = value.amount || Number(existingLoan.amount);
       const terms = value.repaymentTerms || existingLoan.repaymentTerms;
-      const rate = (value.interestRate !== undefined ? value.interestRate : Number(existingLoan.interestRate)) / 100 / 12;
       
-      if (rate > 0) {
-        updateData.monthlyDeduction = (amount * rate * Math.pow(1 + rate, terms)) / (Math.pow(1 + rate, terms) - 1);
-      } else {
-        updateData.monthlyDeduction = amount / terms;
-      }
+      updateData.monthlyDeduction = amount / terms;
 
       // Update outstanding balance if amount changed
       if (value.amount) {
@@ -459,6 +466,12 @@ export const processLoanRepayment = async (req: AuthRequest, res: Response) => {
               jobTitle: true,
               department: true
             }
+          },
+          updatedByAdmin: {
+            select: {
+              id: true,
+              fullName: true
+            }
           }
         }
       });
@@ -578,6 +591,192 @@ export const getLoanLedger = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const updateLoanStatus = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Validate request body
+    const { error, value } = updateLoanStatusSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: error.details[0].message,
+          details: error.details
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Check if loan exists
+    const existingLoan = await prisma.loan.findUnique({
+      where: { id }
+    });
+
+    if (!existingLoan) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'LOAN_NOT_FOUND',
+          message: 'Loan not found'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Prepare update data
+    const updateData: any = {
+      status: value.status,
+      statusComments: value.statusComments,
+      updatedBy: req.admin?.id
+    };
+
+    // If approving the loan, set approved date and start date
+    if (value.status === 'APPROVED' && existingLoan.status !== 'APPROVED') {
+      updateData.approvedDate = new Date();
+      if (value.startDate) {
+        updateData.startDate = value.startDate;
+      } else {
+        // Default start date to next month if not specified
+        const nextMonth = new Date();
+        nextMonth.setMonth(nextMonth.getMonth() + 1);
+        nextMonth.setDate(1); // First day of next month
+        updateData.startDate = nextMonth;
+      }
+    }
+
+    // Update loan
+    const updatedLoan = await prisma.loan.update({
+      where: { id },
+      data: updateData,
+      include: {
+        staff: {
+          select: {
+            id: true,
+            fullName: true,
+            employeeId: true,
+            jobTitle: true,
+            department: true
+          }
+        },
+        updatedByAdmin: {
+          select: {
+            id: true,
+            fullName: true
+          }
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      data: updatedLoan,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Update loan status error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to update loan status'
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+export const pauseResumeLoan = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Validate request body
+    const { error, value } = pauseLoanSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: error.details[0].message,
+          details: error.details
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Check if loan exists
+    const existingLoan = await prisma.loan.findUnique({
+      where: { id }
+    });
+
+    if (!existingLoan) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'LOAN_NOT_FOUND',
+          message: 'Loan not found'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Update loan pause status
+    const updateData: any = {
+      isPaused: value.isPaused,
+      updatedBy: req.admin?.id
+    };
+
+    if (value.isPaused) {
+      updateData.pausedAt = new Date();
+      updateData.pauseReason = value.pauseReason;
+    } else {
+      updateData.pausedAt = null;
+      updateData.pauseReason = null;
+    }
+
+    const updatedLoan = await prisma.loan.update({
+      where: { id },
+      data: updateData,
+      include: {
+        staff: {
+          select: {
+            id: true,
+            fullName: true,
+            employeeId: true,
+            jobTitle: true,
+            department: true
+          }
+        },
+        updatedByAdmin: {
+          select: {
+            id: true,
+            fullName: true
+          }
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      data: updatedLoan,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Pause/Resume loan error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to pause/resume loan'
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
 export const getLoanSummary = async (req: AuthRequest, res: Response) => {
   try {
     // Get loan statistics
@@ -597,10 +796,11 @@ export const getLoanSummary = async (req: AuthRequest, res: Response) => {
       prisma.loan.count({ where: { status: 'COMPLETED' } }),
       prisma.loan.count({ where: { status: 'REJECTED' } }),
       prisma.loan.aggregate({
+        where: { status: { in: ['APPROVED', 'COMPLETED'] } },
         _sum: { amount: true }
       }),
       prisma.loan.aggregate({
-        where: { status: { in: ['APPROVED', 'COMPLETED'] } },
+        where: { status: { in: ['APPROVED'] } },
         _sum: { outstandingBalance: true }
       }),
       prisma.loanRepayment.aggregate({
@@ -631,7 +831,7 @@ export const getLoanSummary = async (req: AuthRequest, res: Response) => {
           approvedLoans,
           completedLoans,
           rejectedLoans,
-          totalLoanAmount: Number(totalLoanAmount._sum.amount || 0),
+          totalDisbursed: Number(totalLoanAmount._sum.amount || 0),
           totalOutstanding: Number(totalOutstanding._sum.outstandingBalance || 0),
           totalRepaid: Number(totalRepaid._sum.amount || 0)
         },

@@ -103,12 +103,14 @@ export const getHeadcountReport = async (req: AuthRequest, res: Response) => {
     // Generate summary statistics
     const totalCount = staff.length;
     const departmentBreakdown = staff.reduce((acc, s) => {
-      acc[s.department] = (acc[s.department] || 0) + 1;
+      const dept = s.department || 'Unassigned';
+      acc[dept] = (acc[dept] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
     const employmentTypeBreakdown = staff.reduce((acc, s) => {
-      acc[s.employmentType] = (acc[s.employmentType] || 0) + 1;
+      const empType = s.employmentType || 'Unassigned';
+      acc[empType] = (acc[empType] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
@@ -138,7 +140,7 @@ export const getHeadcountReport = async (req: AuthRequest, res: Response) => {
         jobTitle: s.jobTitle,
         department: s.department,
         employmentType: s.employmentType,
-        dateOfJoining: s.dateOfJoining.toISOString().split('T')[0],
+        dateOfJoining: s.dateOfJoining ? s.dateOfJoining.toISOString().split('T')[0] : null,
         workLocation: s.workLocation,
         gender: s.gender,
         maritalStatus: s.maritalStatus
@@ -396,7 +398,7 @@ export const getLoanReport = async (req: AuthRequest, res: Response) => {
     }, {} as Record<string, number>);
 
     const departmentSummary = loans.reduce((acc, loan) => {
-      const dept = loan.staff.department;
+      const dept = loan.staff.department || 'Unassigned';
       if (!acc[dept]) {
         acc[dept] = {
           count: 0,
@@ -434,7 +436,6 @@ export const getLoanReport = async (req: AuthRequest, res: Response) => {
         jobTitle: loan.staff.jobTitle,
         department: loan.staff.department,
         loanAmount: Number(loan.amount),
-        interestRate: Number(loan.interestRate),
         repaymentTerms: loan.repaymentTerms,
         monthlyDeduction: Number(loan.monthlyDeduction),
         outstandingBalance: Number(loan.outstandingBalance),
@@ -449,7 +450,7 @@ export const getLoanReport = async (req: AuthRequest, res: Response) => {
 
     // Handle CSV format
     if (format === 'csv') {
-      const headers = ['employeeId', 'fullName', 'jobTitle', 'department', 'loanAmount', 'interestRate', 'repaymentTerms', 'monthlyDeduction', 'outstandingBalance', 'installmentsPaid', 'status', 'reason', 'createdAt', 'approvedDate', 'totalRepayments'];
+      const headers = ['employeeId', 'fullName', 'jobTitle', 'department', 'loanAmount', 'repaymentTerms', 'monthlyDeduction', 'outstandingBalance', 'installmentsPaid', 'status', 'reason', 'createdAt', 'approvedDate', 'totalRepayments'];
       const csvData = convertToCSV(reportData.data, headers);
       
       res.setHeader('Content-Type', 'text/csv');

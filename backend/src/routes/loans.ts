@@ -4,6 +4,8 @@ import {
   getLoanById,
   createLoan,
   updateLoan,
+  updateLoanStatus,
+  pauseResumeLoan,
   getLoanLedger,
   processLoanRepayment,
   getLoanSummary
@@ -20,6 +22,8 @@ router.get('/summary', getLoanSummary);
 router.get('/:id', getLoanById);
 router.post('/', createLoan);
 router.put('/:id', updateLoan);
+router.put('/:id/status', updateLoanStatus);
+router.put('/:id/pause', pauseResumeLoan);
 router.get('/:id/ledger', getLoanLedger);
 router.post('/:id/repayment', processLoanRepayment);
 

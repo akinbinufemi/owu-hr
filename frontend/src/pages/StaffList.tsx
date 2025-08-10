@@ -1,6 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import axios from 'axios';
+import DatePicker from '../components/ui/DatePicker';
+
+interface Category {
+  id: string;
+  name: string;
+  type: string;
+  description?: string;
+}
 
 interface AddStaffModalProps {
   onClose: () => void;
@@ -33,9 +41,13 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ onClose, onSuccess }) => 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [managers, setManagers] = useState<Staff[]>([]);
+  const [positions, setPositions] = useState<Category[]>([]);
+  const [departments, setDepartments] = useState<Category[]>([]);
+  const [jobTypes, setJobTypes] = useState<Category[]>([]);
 
   useEffect(() => {
     fetchManagers();
+    fetchCategories();
   }, []);
 
   const fetchManagers = async () => {
@@ -46,6 +58,20 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ onClose, onSuccess }) => 
       }
     } catch (error) {
       console.error('Failed to fetch managers:', error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get('/admin/categories');
+      if (response.data.success) {
+        const categories = response.data.data;
+        setPositions(categories.filter((cat: Category) => cat.type === 'POSITION'));
+        setDepartments(categories.filter((cat: Category) => cat.type === 'DEPARTMENT'));
+        setJobTypes(categories.filter((cat: Category) => cat.type === 'JOB_TYPE'));
+      }
+    } catch (error) {
+      console.error('Failed to fetch categories:', error);
     }
   };
 
@@ -81,10 +107,30 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ onClose, onSuccess }) => 
     setLoading(true);
     setError('');
 
+    // Validate required fields
+    if (!formData.fullName.trim()) {
+      setError('Full Name is required');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.employeeId.trim()) {
+      setError('Employee ID is required');
+      setLoading(false);
+      return;
+    }
+
+    const validPhones = formData.phoneNumbers.filter(phone => phone.trim() !== '');
+    if (validPhones.length === 0) {
+      setError('At least one phone number is required');
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await axios.post('/staff', {
         ...formData,
-        phoneNumbers: formData.phoneNumbers.filter(phone => phone.trim() !== '')
+        phoneNumbers: validPhones
       });
 
       if (response.data.success) {
@@ -155,22 +201,20 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ onClose, onSuccess }) => 
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date of Birth *
+                  Date of Birth
                 </label>
-                <input
-                  type="date"
-                  name="dateOfBirth"
+                <DatePicker
                   value={formData.dateOfBirth}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onChange={(date) => setFormData(prev => ({ ...prev, dateOfBirth: date }))}
+                  placeholder="Select date of birth"
+                  name="dateOfBirth"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Gender *
+                    Gender
                   </label>
                   <select
                     name="gender"
@@ -186,7 +230,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ onClose, onSuccess }) => 
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Marital Status *
+                    Marital Status
                   </label>
                   <select
                     name="maritalStatus"
@@ -204,14 +248,13 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ onClose, onSuccess }) => 
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nationality *
+                  Nationality
                 </label>
                 <input
                   type="text"
                   name="nationality"
                   value={formData.nationality}
                   onChange={handleInputChange}
-                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -223,13 +266,12 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ onClose, onSuccess }) => 
               
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Address *
+                  Address
                 </label>
                 <textarea
                   name="address"
                   value={formData.address}
                   onChange={handleInputChange}
-                  required
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm resize-vertical focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
@@ -237,28 +279,26 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ onClose, onSuccess }) => 
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Personal Email *
+                  Personal Email
                 </label>
                 <input
                   type="email"
                   name="personalEmail"
                   value={formData.personalEmail}
                   onChange={handleInputChange}
-                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Work Email *
+                  Work Email
                 </label>
                 <input
                   type="email"
                   name="workEmail"
                   value={formData.workEmail}
                   onChange={handleInputChange}
-                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -274,6 +314,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ onClose, onSuccess }) => 
                       value={phone}
                       onChange={(e) => handlePhoneChange(index, e.target.value)}
                       placeholder="Phone number"
+                      required={index === 0}
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                     {formData.phoneNumbers.length > 1 && (
@@ -305,30 +346,40 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ onClose, onSuccess }) => 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Job Title *
+                  Position
                 </label>
-                <input
-                  type="text"
+                <select
                   name="jobTitle"
                   value={formData.jobTitle}
                   onChange={handleInputChange}
-                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+                >
+                  <option value="">Select Position</option>
+                  {positions.map(position => (
+                    <option key={position.id} value={position.name}>
+                      {position.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Department *
+                  Department
                 </label>
-                <input
-                  type="text"
+                <select
                   name="department"
                   value={formData.department}
                   onChange={handleInputChange}
-                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+                >
+                  <option value="">Select Department</option>
+                  {departments.map(department => (
+                    <option key={department.id} value={department.name}>
+                      {department.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -352,21 +403,19 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ onClose, onSuccess }) => 
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date of Joining *
+                  Date of Joining
                 </label>
-                <input
-                  type="date"
-                  name="dateOfJoining"
+                <DatePicker
                   value={formData.dateOfJoining}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onChange={(date) => setFormData(prev => ({ ...prev, dateOfJoining: date }))}
+                  placeholder="Select joining date"
+                  name="dateOfJoining"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Employment Type *
+                  Employment Type
                 </label>
                 <select
                   name="employmentType"
@@ -374,22 +423,24 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ onClose, onSuccess }) => 
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="FULL_TIME">Full Time</option>
-                  <option value="PART_TIME">Part Time</option>
-                  <option value="CONTRACT">Contract</option>
+                  <option value="">Select Type</option>
+                  {jobTypes.map(jobType => (
+                    <option key={jobType.id} value={jobType.name.toUpperCase().replace(' ', '_')}>
+                      {jobType.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Work Location *
+                  Work Location
                 </label>
                 <input
                   type="text"
                   name="workLocation"
                   value={formData.workLocation}
                   onChange={handleInputChange}
-                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -403,42 +454,39 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ onClose, onSuccess }) => 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Contact Name *
+                  Contact Name
                 </label>
                 <input
                   type="text"
                   name="emergencyContactName"
                   value={formData.emergencyContactName}
                   onChange={handleInputChange}
-                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Relationship *
+                  Relationship
                 </label>
                 <input
                   type="text"
                   name="emergencyContactRelationship"
                   value={formData.emergencyContactRelationship}
                   onChange={handleInputChange}
-                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Contact Phone *
+                  Contact Phone
                 </label>
                 <input
                   type="tel"
                   name="emergencyContactPhone"
                   value={formData.emergencyContactPhone}
                   onChange={handleInputChange}
-                  required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>

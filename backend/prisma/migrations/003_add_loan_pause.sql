@@ -1,0 +1,4 @@
+-- Add pause functionality to loans
+ALTER TABLE loans ADD COLUMN IF NOT EXISTS "isPaused" BOOLEAN DEFAULT false;
+ALTER TABLE loans ADD COLUMN IF NOT EXISTS "pausedAt" TIMESTAMP;
+ALTER TABLE loans ADD COLUMN IF NOT EXISTS "pauseReason" TEXT;

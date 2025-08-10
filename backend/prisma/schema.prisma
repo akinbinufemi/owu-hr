@@ -26,6 +26,7 @@ model Admin {
   // Relations
   auditTrails AuditTrail[]
   issues      Issue[]
+  loans       Loan[]
   createdByAdmin Admin? @relation("AdminCreatedBy", fields: [createdBy], references: [id])
   createdAdmins Admin[] @relation("AdminCreatedBy")
 
@@ -38,33 +39,33 @@ model Staff {
 
   // Personal Information
   fullName      String
-  dateOfBirth   DateTime
+  dateOfBirth   DateTime?
   gender        Gender
   maritalStatus MaritalStatus
-  nationality   String
+  nationality   String?
   photo         String?
 
   // Contact Information
-  address       String
-  personalEmail String
-  workEmail     String
+  address       String?
+  personalEmail String?
+  workEmail     String?
   phoneNumbers  String[]
 
   // Job Information
-  jobTitle            String
-  department          String
+  jobTitle            String?
+  department          String?
   positionId          String?
   departmentId        String?
   jobTypeId           String?
   reportingManagerId  String?
-  dateOfJoining       DateTime
-  employmentType      EmploymentType
-  workLocation        String
+  dateOfJoining       DateTime?
+  employmentType      EmploymentType?
+  workLocation        String?
 
   // Emergency Contact
-  emergencyContactName         String
-  emergencyContactRelationship String
-  emergencyContactPhone        String
+  emergencyContactName         String?
+  emergencyContactRelationship String?
+  emergencyContactPhone        String?
 
   // System fields
   isExternallyPaid Boolean  @default(false)
@@ -122,20 +123,25 @@ model Loan {
   staffId          String
   amount           Decimal    @db.Decimal(10, 2)
   reason           String
-  interestRate     Decimal    @default(0) @db.Decimal(5, 2)
   repaymentTerms   Int // months
   monthlyDeduction Decimal    @db.Decimal(10, 2)
   status           LoanStatus @default(PENDING)
   approvedDate     DateTime?
-  startDate        DateTime?
+  startDate        DateTime? // Start month of deduction
   outstandingBalance Decimal  @db.Decimal(10, 2)
   installmentsPaid Int        @default(0)
+  statusComments   String? // Comments when status is changed
+  updatedBy        String? // Admin who last updated the loan
+  isPaused         Boolean    @default(false) // Pause loan repayment
+  pausedAt         DateTime? // When loan was paused
+  pauseReason      String? // Reason for pausing
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 
   // Relations
   staff      Staff           @relation(fields: [staffId], references: [id], onDelete: Cascade)
   repayments LoanRepayment[]
+  updatedByAdmin Admin?      @relation(fields: [updatedBy], references: [id])
 
   @@map("loans")
 }

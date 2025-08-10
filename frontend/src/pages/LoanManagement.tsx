@@ -1,19 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import DatePicker from '../components/ui/DatePicker';
 import axios from 'axios';
 
 interface Loan {
   id: string;
   amount: number;
   reason: string;
-  interestRate: number;
   repaymentTerms: number;
   monthlyDeduction: number;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
   approvedDate?: string;
-  startDate?: string;
+  startDate?: string; // Start month of deduction
   outstandingBalance: number;
   installmentsPaid: number;
+  statusComments?: string; // Comments when status is changed
+  updatedBy?: string; // Admin who last updated the loan
+  isPaused?: boolean; // Pause loan repayment
+  pausedAt?: string; // When loan was paused
+  pauseReason?: string; // Reason for pausing
   createdAt: string;
   staff: {
     id: string;
@@ -21,6 +26,10 @@ interface Loan {
     employeeId: string;
     jobTitle: string;
     department: string;
+  };
+  updatedByAdmin?: {
+    id: string;
+    fullName: string;
   };
   repayments?: LoanRepayment[];
 }
@@ -77,8 +86,9 @@ const LoanManagement: React.FC = () => {
     staffId: '',
     amount: '',
     reason: '',
-    interestRate: '0',
-    repaymentTerms: '12'
+    repaymentTerms: '12',
+    monthlyInstallment: '',
+    startDate: ''
   });
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [showLoanDetails, setShowLoanDetails] = useState(false);
@@ -87,6 +97,17 @@ const LoanManagement: React.FC = () => {
     paymentMethod: 'MANUAL_PAYMENT',
     notes: ''
   });
+  const [statusUpdateForm, setStatusUpdateForm] = useState({
+    status: '',
+    statusComments: '',
+    startDate: ''
+  });
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [pauseForm, setPauseForm] = useState({
+    isPaused: false,
+    pauseReason: ''
+  });
+  const [showPauseModal, setShowPauseModal] = useState(false);
 
   useEffect(() => {
     if (activeTab === 'overview') {
@@ -101,7 +122,7 @@ const LoanManagement: React.FC = () => {
   const fetchLoanSummary = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/loans/summary');
+      const response = await axios.get('/api/loans/summary');
       if (response.data.success) {
         setLoanSummary(response.data.data);
       }
@@ -122,6 +143,7 @@ const LoanManagement: React.FC = () => {
       });
 
       const response = await axios.get(`/api/loans?${params}`);
+      console.log('Loans API Response:', response.data);
       if (response.data.success) {
         setLoans(response.data.data.loans);
         setPagination(prev => ({
@@ -129,8 +151,9 @@ const LoanManagement: React.FC = () => {
           ...response.data.data.pagination
         }));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to fetch loans:', error);
+      console.error('Error details:', error.response?.data);
     } finally {
       setLoading(false);
     }
@@ -138,7 +161,7 @@ const LoanManagement: React.FC = () => {
 
   const fetchStaffOptions = async () => {
     try {
-      const response = await axios.get('/staff?limit=1000');
+      const response = await axios.get('/api/staff?limit=1000');
       if (response.data.success) {
         setStaffOptions(response.data.data.staff);
       }
@@ -151,11 +174,12 @@ const LoanManagement: React.FC = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      const response = await axios.post('/loans', {
+      const response = await axios.post('/api/loans', {
         ...createForm,
         amount: parseFloat(createForm.amount),
-        interestRate: parseFloat(createForm.interestRate),
-        repaymentTerms: parseInt(createForm.repaymentTerms)
+        repaymentTerms: parseInt(createForm.repaymentTerms),
+        monthlyDeduction: parseFloat(createForm.monthlyInstallment),
+        startDate: createForm.startDate ? new Date(createForm.startDate).toISOString() : undefined
       });
       
       if (response.data.success) {
@@ -164,8 +188,9 @@ const LoanManagement: React.FC = () => {
           staffId: '',
           amount: '',
           reason: '',
-          interestRate: '0',
-          repaymentTerms: '12'
+          repaymentTerms: '12',
+          monthlyInstallment: '',
+          startDate: ''
         });
         setActiveTab('loans');
       }
@@ -177,18 +202,38 @@ const LoanManagement: React.FC = () => {
     }
   };
 
-  const handleUpdateLoanStatus = async (loanId: string, status: string) => {
+  const handleUpdateLoanStatus = async (loan: Loan) => {
+    setSelectedLoan(loan);
+    setStatusUpdateForm({
+      status: loan.status,
+      statusComments: loan.statusComments || '',
+      startDate: loan.startDate ? new Date(loan.startDate).toISOString().split('T')[0] : ''
+    });
+    setShowStatusModal(true);
+  };
+
+  const handleStatusUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedLoan) return;
+
     try {
-      const response = await axios.put(`/api/loans/${loanId}`, { status });
+      const response = await axios.put(`/api/loans/${selectedLoan.id}/status`, {
+        status: statusUpdateForm.status,
+        statusComments: statusUpdateForm.statusComments,
+        startDate: statusUpdateForm.startDate ? new Date(statusUpdateForm.startDate).toISOString() : undefined
+      });
+      
       if (response.data.success) {
-        alert(`Loan ${status.toLowerCase()} successfully!`);
+        alert(`Loan status updated successfully!`);
+        setShowStatusModal(false);
+        setStatusUpdateForm({ status: '', statusComments: '', startDate: '' });
         fetchLoans();
-        if (selectedLoan?.id === loanId) {
+        if (showLoanDetails) {
           setSelectedLoan(response.data.data);
         }
       }
     } catch (error: any) {
-      const message = error.response?.data?.error?.message || 'Failed to update loan';
+      const message = error.response?.data?.error?.message || 'Failed to update loan status';
       alert(`Error: ${message}`);
     }
   };
@@ -257,6 +302,52 @@ const LoanManagement: React.FC = () => {
   const calculateProgress = (loan: Loan) => {
     if (loan.repaymentTerms === 0) return 0;
     return (loan.installmentsPaid / loan.repaymentTerms) * 100;
+  };
+
+  const calculateCompletionDate = (loan: Loan) => {
+    if (loan.status === 'COMPLETED') return 'Completed';
+    if (loan.status !== 'APPROVED' || !loan.startDate) return 'Not started';
+    
+    const remainingInstallments = loan.repaymentTerms - loan.installmentsPaid;
+    const startDate = new Date(loan.startDate);
+    const completionDate = new Date(startDate);
+    completionDate.setMonth(completionDate.getMonth() + loan.repaymentTerms);
+    
+    return completionDate.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short'
+    });
+  };
+
+  const handlePauseResume = async (loan: Loan) => {
+    setSelectedLoan(loan);
+    setPauseForm({
+      isPaused: !loan.isPaused,
+      pauseReason: ''
+    });
+    setShowPauseModal(true);
+  };
+
+  const handlePauseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedLoan) return;
+
+    try {
+      const response = await axios.put(`/api/loans/${selectedLoan.id}/pause`, pauseForm);
+      
+      if (response.data.success) {
+        alert(`Loan ${pauseForm.isPaused ? 'paused' : 'resumed'} successfully!`);
+        setShowPauseModal(false);
+        setPauseForm({ isPaused: false, pauseReason: '' });
+        fetchLoans();
+        if (showLoanDetails) {
+          setSelectedLoan(response.data.data);
+        }
+      }
+    } catch (error: any) {
+      const message = error.response?.data?.error?.message || 'Failed to update loan pause status';
+      alert(`Error: ${message}`);
+    }
   };
 
   return (
@@ -523,8 +614,9 @@ const LoanManagement: React.FC = () => {
                     <thead style={{ backgroundColor: '#f9fafb' }}>
                       <tr>
                         <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Employee</th>
-                        <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Amount</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Loan Details</th>
                         <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Progress</th>
+                        <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Completion</th>
                         <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Status</th>
                         <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>Actions</th>
                       </tr>
@@ -532,7 +624,7 @@ const LoanManagement: React.FC = () => {
                     <tbody>
                       {loans.length === 0 ? (
                         <tr>
-                          <td colSpan={5} style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+                          <td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
                             No loans found
                           </td>
                         </tr>
@@ -556,10 +648,16 @@ const LoanManagement: React.FC = () => {
                               <td style={{ padding: '1rem 0.75rem' }}>
                                 <div>
                                   <div style={{ fontSize: '0.875rem', fontWeight: '500', color: '#111827' }}>
-                                    {formatCurrency(loan.amount)}
+                                    Total: {formatCurrency(loan.amount)}
                                   </div>
                                   <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                                    Outstanding: {formatCurrency(loan.outstandingBalance)}
+                                    Monthly: {formatCurrency(loan.monthlyDeduction)}
+                                  </div>
+                                  <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                                    Paid: {formatCurrency(loan.amount - loan.outstandingBalance)}
+                                  </div>
+                                  <div style={{ fontSize: '0.75rem', color: loan.outstandingBalance > 0 ? '#dc2626' : '#10b981' }}>
+                                    Left: {formatCurrency(loan.outstandingBalance)}
                                   </div>
                                 </div>
                               </td>
@@ -581,19 +679,50 @@ const LoanManagement: React.FC = () => {
                                 </div>
                               </td>
                               <td style={{ padding: '1rem 0.75rem' }}>
-                                <span
-                                  style={{
-                                    display: 'inline-block',
-                                    padding: '0.25rem 0.5rem',
-                                    borderRadius: '0.375rem',
-                                    fontSize: '0.75rem',
-                                    fontWeight: '500',
-                                    color: statusColor.text,
-                                    backgroundColor: statusColor.bg
-                                  }}
-                                >
-                                  {loan.status}
-                                </span>
+                                <div>
+                                  <div style={{ fontSize: '0.875rem', color: '#111827' }}>
+                                    {calculateCompletionDate(loan)}
+                                  </div>
+                                  {loan.startDate && (
+                                    <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                                      Started: {formatDate(loan.startDate)}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td style={{ padding: '1rem 0.75rem' }}>
+                                <div>
+                                  <span
+                                    style={{
+                                      display: 'inline-block',
+                                      padding: '0.25rem 0.5rem',
+                                      borderRadius: '0.375rem',
+                                      fontSize: '0.75rem',
+                                      fontWeight: '500',
+                                      color: statusColor.text,
+                                      backgroundColor: statusColor.bg
+                                    }}
+                                  >
+                                    {loan.status}
+                                  </span>
+                                  {loan.isPaused && (
+                                    <div style={{ marginTop: '0.25rem' }}>
+                                      <span
+                                        style={{
+                                          display: 'inline-block',
+                                          padding: '0.25rem 0.5rem',
+                                          borderRadius: '0.375rem',
+                                          fontSize: '0.75rem',
+                                          fontWeight: '500',
+                                          color: '#f59e0b',
+                                          backgroundColor: '#fef3c7'
+                                        }}
+                                      >
+                                        PAUSED
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
                               </td>
                               <td style={{ padding: '1rem 0.75rem' }}>
                                 <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -611,37 +740,36 @@ const LoanManagement: React.FC = () => {
                                   >
                                     View
                                   </button>
-                                  {loan.status === 'PENDING' && (
-                                    <>
-                                      <button
-                                        onClick={() => handleUpdateLoanStatus(loan.id, 'APPROVED')}
-                                        style={{
-                                          padding: '0.25rem 0.5rem',
-                                          backgroundColor: '#10b981',
-                                          color: 'white',
-                                          borderRadius: '0.25rem',
-                                          fontSize: '0.75rem',
-                                          border: 'none',
-                                          cursor: 'pointer'
-                                        }}
-                                      >
-                                        Approve
-                                      </button>
-                                      <button
-                                        onClick={() => handleUpdateLoanStatus(loan.id, 'REJECTED')}
-                                        style={{
-                                          padding: '0.25rem 0.5rem',
-                                          backgroundColor: '#dc2626',
-                                          color: 'white',
-                                          borderRadius: '0.25rem',
-                                          fontSize: '0.75rem',
-                                          border: 'none',
-                                          cursor: 'pointer'
-                                        }}
-                                      >
-                                        Reject
-                                      </button>
-                                    </>
+                                  <button
+                                    onClick={() => handleUpdateLoanStatus(loan)}
+                                    style={{
+                                      padding: '0.25rem 0.5rem',
+                                      backgroundColor: '#f59e0b',
+                                      color: 'white',
+                                      borderRadius: '0.25rem',
+                                      fontSize: '0.75rem',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      marginRight: '0.5rem'
+                                    }}
+                                  >
+                                    Update Status
+                                  </button>
+                                  {loan.status === 'APPROVED' && (
+                                    <button
+                                      onClick={() => handlePauseResume(loan)}
+                                      style={{
+                                        padding: '0.25rem 0.5rem',
+                                        backgroundColor: loan.isPaused ? '#10b981' : '#f59e0b',
+                                        color: 'white',
+                                        borderRadius: '0.25rem',
+                                        fontSize: '0.75rem',
+                                        border: 'none',
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      {loan.isPaused ? 'Resume' : 'Pause'}
+                                    </button>
                                   )}
                                 </div>
                               </td>
@@ -735,7 +863,15 @@ const LoanManagement: React.FC = () => {
                   <input
                     type="number"
                     value={createForm.amount}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, amount: e.target.value }))}
+                    onChange={(e) => {
+                      const amount = e.target.value;
+                      setCreateForm(prev => ({ 
+                        ...prev, 
+                        amount,
+                        // Auto-calculate monthly installment if terms are set
+                        monthlyInstallment: amount && prev.repaymentTerms ? (parseFloat(amount) / parseInt(prev.repaymentTerms)).toFixed(2) : prev.monthlyInstallment
+                      }));
+                    }}
                     required
                     min="1"
                     step="0.01"
@@ -758,22 +894,7 @@ const LoanManagement: React.FC = () => {
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.25rem' }}>
-                    Interest Rate (%)
-                  </label>
-                  <input
-                    type="number"
-                    value={createForm.interestRate}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, interestRate: e.target.value }))}
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
-                  />
-                </div>
-
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.25rem' }}>
                     Repayment Terms (months) *
@@ -781,13 +902,53 @@ const LoanManagement: React.FC = () => {
                   <input
                     type="number"
                     value={createForm.repaymentTerms}
-                    onChange={(e) => setCreateForm(prev => ({ ...prev, repaymentTerms: e.target.value }))}
+                    onChange={(e) => {
+                      const terms = e.target.value;
+                      setCreateForm(prev => ({ 
+                        ...prev, 
+                        repaymentTerms: terms,
+                        // Auto-calculate monthly installment if amount is set
+                        monthlyInstallment: prev.amount && terms ? (parseFloat(prev.amount) / parseInt(terms)).toFixed(2) : prev.monthlyInstallment
+                      }));
+                    }}
                     required
                     min="1"
                     max="60"
                     style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
                   />
                 </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.25rem' }}>
+                    Monthly Installment (₦) *
+                  </label>
+                  <input
+                    type="number"
+                    value={createForm.monthlyInstallment}
+                    onChange={(e) => setCreateForm(prev => ({ ...prev, monthlyInstallment: e.target.value }))}
+                    required
+                    min="1"
+                    step="0.01"
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+                  />
+                  <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                    Amount to be deducted from salary monthly
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '2rem' }}>
+                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.25rem' }}>
+                  Start Month of Deduction
+                </label>
+                <DatePicker
+                  value={createForm.startDate}
+                  onChange={(date) => setCreateForm(prev => ({ ...prev, startDate: date }))}
+                  placeholder="Select start date for deductions"
+                />
+                <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                  Leave empty to start deductions next month
+                </p>
               </div>
 
               <div style={{ display: 'flex', gap: '1rem' }}>
@@ -813,8 +974,9 @@ const LoanManagement: React.FC = () => {
                     staffId: '',
                     amount: '',
                     reason: '',
-                    interestRate: '0',
-                    repaymentTerms: '12'
+                    repaymentTerms: '12',
+                    monthlyInstallment: '',
+                    startDate: ''
                   })}
                   style={{
                     backgroundColor: '#6b7280',
@@ -898,9 +1060,9 @@ const LoanManagement: React.FC = () => {
                     </p>
                   </div>
                   <div>
-                    <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Interest Rate</p>
+                    <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Start Date</p>
                     <p style={{ fontSize: '0.875rem', fontWeight: '500', color: '#111827' }}>
-                      {selectedLoan.interestRate}%
+                      {selectedLoan.startDate ? formatDate(selectedLoan.startDate) : 'Not set'}
                     </p>
                   </div>
                   <div>
@@ -926,6 +1088,18 @@ const LoanManagement: React.FC = () => {
                   <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Reason</p>
                   <p style={{ fontSize: '0.875rem', color: '#111827' }}>{selectedLoan.reason}</p>
                 </div>
+                
+                {selectedLoan.statusComments && (
+                  <div style={{ marginTop: '1rem' }}>
+                    <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem' }}>Status Comments</p>
+                    <p style={{ fontSize: '0.875rem', color: '#111827' }}>{selectedLoan.statusComments}</p>
+                    {selectedLoan.updatedByAdmin && (
+                      <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                        Updated by: {selectedLoan.updatedByAdmin.fullName}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Repayment Form */}
@@ -1036,6 +1210,258 @@ const LoanManagement: React.FC = () => {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Status Update Modal */}
+      {showStatusModal && selectedLoan && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 50
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '0.5rem',
+            boxShadow: '0 10px 25px -3px rgb(0 0 0 / 0.1)',
+            maxWidth: '500px',
+            width: '90%'
+          }}>
+            <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827' }}>
+                  Update Loan Status
+                </h3>
+                <button
+                  onClick={() => setShowStatusModal(false)}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    fontSize: '1.5rem',
+                    color: '#6b7280',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            <div style={{ padding: '1.5rem' }}>
+              <div style={{ marginBottom: '1rem' }}>
+                <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>
+                  <strong>Employee:</strong> {selectedLoan.staff.fullName} ({selectedLoan.staff.employeeId})
+                </p>
+                <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>
+                  <strong>Amount:</strong> {formatCurrency(selectedLoan.amount)}
+                </p>
+                <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                  <strong>Current Status:</strong> {selectedLoan.status}
+                </p>
+              </div>
+
+              <form onSubmit={handleStatusUpdate}>
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.25rem' }}>
+                    New Status *
+                  </label>
+                  <select
+                    value={statusUpdateForm.status}
+                    onChange={(e) => setStatusUpdateForm(prev => ({ ...prev, status: e.target.value }))}
+                    required
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+                  >
+                    <option value="">Select Status</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="APPROVED">Approved</option>
+                    <option value="REJECTED">Rejected</option>
+                    <option value="COMPLETED">Completed</option>
+                  </select>
+                </div>
+
+                {statusUpdateForm.status === 'APPROVED' && (
+                  <div style={{ marginBottom: '1rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.25rem' }}>
+                      Start Month of Deduction
+                    </label>
+                    <DatePicker
+                      value={statusUpdateForm.startDate}
+                      onChange={(date) => setStatusUpdateForm(prev => ({ ...prev, startDate: date }))}
+                      placeholder="Select start date for deductions"
+                    />
+                    <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                      Leave empty to start deductions next month
+                    </p>
+                  </div>
+                )}
+
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.25rem' }}>
+                    Comments *
+                  </label>
+                  <textarea
+                    value={statusUpdateForm.statusComments}
+                    onChange={(e) => setStatusUpdateForm(prev => ({ ...prev, statusComments: e.target.value }))}
+                    required
+                    rows={3}
+                    placeholder="Enter comments about this status change..."
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem', resize: 'vertical' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowStatusModal(false)}
+                    style={{
+                      backgroundColor: '#6b7280',
+                      color: 'white',
+                      padding: '0.5rem 1rem',
+                      borderRadius: '0.375rem',
+                      fontSize: '0.875rem',
+                      fontWeight: '500',
+                      border: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    style={{
+                      backgroundColor: '#0ea5e9',
+                      color: 'white',
+                      padding: '0.5rem 1rem',
+                      borderRadius: '0.375rem',
+                      fontSize: '0.875rem',
+                      fontWeight: '500',
+                      border: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Update Status
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pause/Resume Modal */}
+      {showPauseModal && selectedLoan && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 50
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '0.5rem',
+            boxShadow: '0 10px 25px -3px rgb(0 0 0 / 0.1)',
+            maxWidth: '500px',
+            width: '90%'
+          }}>
+            <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827' }}>
+                  {pauseForm.isPaused ? 'Pause' : 'Resume'} Loan Repayment
+                </h3>
+                <button
+                  onClick={() => setShowPauseModal(false)}
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    fontSize: '1.5rem',
+                    color: '#6b7280',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            <div style={{ padding: '1.5rem' }}>
+              <div style={{ marginBottom: '1rem' }}>
+                <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>
+                  <strong>Employee:</strong> {selectedLoan.staff.fullName} ({selectedLoan.staff.employeeId})
+                </p>
+                <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.5rem' }}>
+                  <strong>Loan Amount:</strong> {formatCurrency(selectedLoan.amount)}
+                </p>
+                <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                  <strong>Monthly Deduction:</strong> {formatCurrency(selectedLoan.monthlyDeduction)}
+                </p>
+              </div>
+
+              <form onSubmit={handlePauseSubmit}>
+                {pauseForm.isPaused && (
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.25rem' }}>
+                      Reason for Pausing *
+                    </label>
+                    <textarea
+                      value={pauseForm.pauseReason}
+                      onChange={(e) => setPauseForm(prev => ({ ...prev, pauseReason: e.target.value }))}
+                      required
+                      rows={3}
+                      placeholder="Enter reason for pausing loan repayment..."
+                      style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem', resize: 'vertical' }}
+                    />
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowPauseModal(false)}
+                    style={{
+                      backgroundColor: '#6b7280',
+                      color: 'white',
+                      padding: '0.5rem 1rem',
+                      borderRadius: '0.375rem',
+                      fontSize: '0.875rem',
+                      fontWeight: '500',
+                      border: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    style={{
+                      backgroundColor: pauseForm.isPaused ? '#f59e0b' : '#10b981',
+                      color: 'white',
+                      padding: '0.5rem 1rem',
+                      borderRadius: '0.375rem',
+                      fontSize: '0.875rem',
+                      fontWeight: '500',
+                      border: 'none',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {pauseForm.isPaused ? 'Pause Loan' : 'Resume Loan'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
