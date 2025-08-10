@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import DatePicker from '../components/ui/DatePicker';
+import ApiTest from '../components/debug/ApiTest';
 import axios from 'axios';
 
 interface Loan {
@@ -406,6 +407,9 @@ const LoanManagement: React.FC = () => {
             Manage employee loans, track repayments, and monitor loan status
           </p>
         </div>
+
+        {/* Debug Component - Remove after testing */}
+        <ApiTest />
 
         {/* Tabs */}
         <div style={{ marginBottom: '2rem' }}>
