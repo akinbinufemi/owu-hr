@@ -16,29 +16,35 @@
 
 ---
 
-## 🚀 Method 1: Netlify (Frontend) + Railway (Backend) - RECOMMENDED
+## 🚀 Method 1: Netlify (Frontend) + Render (Backend) - RECOMMENDED & FREE
 
-### Step 1: Deploy Backend to Railway
+### Step 1: Deploy Backend to Render
 
-1. **Go to [Railway](https://railway.app)**
+1. **Go to [Render](https://render.com)**
 2. **Sign up/Login** with GitHub
-3. **Create New Project** → **Deploy from GitHub repo**
+3. **New** → **Web Service** → **Connect GitHub**
 4. **Select your repository**: `akinbinufemi/owu-hr`
 5. **Configure Service**:
-   - **Root Directory**: `backend`
+   - **Name**: `owu-palace-backend`
+   - **Root Directory**: `backend` ⚠️ **CRITICAL: Must specify this**
    - **Build Command**: `npm install`
    - **Start Command**: `npm start`
+   - **Plan**: Free
 
-6. **Add Environment Variables**:
+6. **Create PostgreSQL Database**:
+   - **New** → **PostgreSQL** → **Name**: `owu-palace-db` → **Plan**: Free
+   - **Copy the Internal Database URL**
+
+7. **Add Environment Variables to Web Service**:
    ```
-   DATABASE_URL=postgresql://... (Railway will auto-provide this)
+   DATABASE_URL=postgresql://owu_palace_user:xxx@dpg-xxx.oregon-postgres.render.com/owu_palace_db
    JWT_SECRET=your-super-secret-jwt-key-here-minimum-32-chars
-   PORT=5000
+   PORT=10000
    FRONTEND_URL=https://your-netlify-app.netlify.app
    NODE_ENV=production
    ```
 
-7. **Deploy**: Railway will give you a URL like `https://your-app.railway.app`
+8. **Deploy**: Render will give you a URL like `https://owu-palace-backend.onrender.com`
 
 ### Step 2: Deploy Frontend to Netlify
 
@@ -51,14 +57,14 @@
 
 4. **Add Environment Variable**:
    ```
-   REACT_APP_API_URL=https://your-app.railway.app/api
+   REACT_APP_API_URL=https://owu-palace-backend.onrender.com/api
    ```
 
-5. **Deploy**: Netlify will give you a URL like `https://your-app.netlify.app`
+5. **Deploy**: Netlify will give you a URL like `https://owu-palace-hrms.netlify.app`
 
 ### Step 3: Initialize Database
 
-1. **In Railway dashboard**, open your backend service terminal
+1. **In Render dashboard**, open your backend service **Shell**
 2. **Run migrations**:
    ```bash
    npx prisma migrate deploy
@@ -70,8 +76,8 @@
 
 ### Step 4: Update CORS Settings
 
-1. **Go back to Railway** and update the `FRONTEND_URL` environment variable
-2. **Set it to your actual Netlify URL**: `https://your-app.netlify.app`
+1. **Go back to Render** and update the `FRONTEND_URL` environment variable
+2. **Set it to your actual Netlify URL**: `https://owu-palace-hrms.netlify.app`
 3. **Redeploy** the backend service
 
 ### Backend Deployment Options

@@ -208,29 +208,29 @@ owu-hr/
 
 **Netlify only hosts static sites** (React frontend). Your Node.js backend needs a separate service.
 
-### 🎯 Recommended Approach: Netlify + Railway
+### 🎯 Recommended Approach: Netlify + Render (100% FREE)
 
 | Component | Platform | Cost | Purpose |
 |-----------|----------|------|---------|
-| **Frontend** | Netlify | FREE | React app, CDN, SSL |
-| **Backend + Database** | Railway | FREE tier | Node.js API, PostgreSQL |
+| **Frontend** | Netlify | FREE forever | React app, CDN, SSL |
+| **Backend + Database** | Render | FREE (750 hours/month) | Node.js API, PostgreSQL |
 
 ### 🚀 Quick Deploy Links
 
 **Step 1: Deploy Backend**
-- Go to [Railway](https://railway.app) → Deploy from GitHub → Select this repo
-- Set root directory to `backend`
-- Add environment variables (see [deploy-guide.md](deploy-guide.md))
+- Go to [Render](https://render.com) → New Web Service → Connect GitHub → Select this repo
+- **IMPORTANT**: Set root directory to `backend`
+- Create PostgreSQL database and add environment variables (see [deploy-guide.md](deploy-guide.md))
 
 **Step 2: Deploy Frontend**
 [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/akinbinufemi/owu-hr)
-- Set base directory to `frontend`
-- Add `REACT_APP_API_URL` pointing to your Railway backend
+- **IMPORTANT**: Set base directory to `frontend`
+- Add `REACT_APP_API_URL` pointing to your Render backend URL
 
 ### 📋 Complete Guides
 - **Quick Start**: [deploy-guide.md](deploy-guide.md) (10 minutes total)
 - **Detailed Instructions**: [DEPLOYMENT.md](DEPLOYMENT.md)
-- **Alternative Platforms**: Render, Vercel, Heroku options included
+- **Alternative Platforms**: Railway, Vercel, Heroku options included
 
 ## 🔐 Demo System
 

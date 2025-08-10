@@ -1,0 +1,30 @@
+# Render Blueprint for Owu Palace HRMS
+# This file can be used to deploy both services at once
+
+services:
+  # Backend Web Service
+  - type: web
+    name: owu-palace-backend
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    rootDir: backend
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://owu-palace-hrms.netlify.app
+      - key: DATABASE_URL
+        fromDatabase:
+          name: owu-palace-db
+          property: connectionString
+
+# PostgreSQL Database
+databases:
+  - name: owu-palace-db
+    plan: free
+    databaseName: owu_palace_hrms
+    user: owu_palace_user
