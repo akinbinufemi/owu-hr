@@ -565,41 +565,35 @@ export const generatePayrollPDF = async (req: AuthRequest, res: Response) => {
     const page = pdfDoc.addPage([842, 595]); // A4 landscape
     const { width, height } = page.getSize();
 
-    // Header
-    page.drawText('OWU PALACE STAFF', {
-      x: 50,
+    // Header - centered
+    const headerText = 'Olowu Palace Salary Schedule for the Month of';
+    const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                       'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthYear = `${monthNames[payrollSchedule.month]} ${payrollSchedule.year}`;
+    
+    page.drawText(headerText, {
+      x: (width - 400) / 2,
       y: height - 50,
-      size: 20,
-      font: timesRomanBoldFont,
-      color: rgb(0, 0, 0)
-    });
-
-    page.drawText('MONTHLY SALARY SCHEDULE', {
-      x: 50,
-      y: height - 80,
       size: 16,
       font: timesRomanBoldFont,
       color: rgb(0, 0, 0)
     });
 
-    const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
-                       'July', 'August', 'September', 'October', 'November', 'December'];
-    
-    page.drawText(`${monthNames[payrollSchedule.month]} ${payrollSchedule.year}`, {
-      x: 50,
-      y: height - 110,
+    page.drawText(monthYear, {
+      x: (width - 200) / 2,
+      y: height - 75,
       size: 14,
-      font: timesRomanFont,
+      font: timesRomanBoldFont,
       color: rgb(0, 0, 0)
     });
 
     // Table headers
-    const startY = height - 150;
+    const startY = height - 120;
     const rowHeight = 25;
     let currentY = startY;
 
-    const headers = ['S/N', 'Employee ID', 'Name', 'Basic Salary', 'Allowances', 'Gross', 'Deductions', 'Net Salary'];
-    const columnWidths = [40, 80, 150, 80, 80, 80, 80, 100];
+    const headers = ['SN', 'Designation', 'Name', 'Salary (₦)', 'Account Details', 'Remark'];
+    const columnWidths = [40, 120, 150, 100, 150, 100];
     let currentX = 50;
 
     // Draw header row
@@ -633,13 +627,11 @@ export const generatePayrollPDF = async (req: AuthRequest, res: Response) => {
       
       const rowData = [
         (index + 1).toString(),
-        staff.employeeId,
-        staff.fullName.length > 20 ? staff.fullName.substring(0, 17) + '...' : staff.fullName,
-        `₦${staff.basicSalary.toLocaleString()}`,
-        `₦${(staff.grossSalary - staff.basicSalary).toLocaleString()}`,
-        `₦${staff.grossSalary.toLocaleString()}`,
-        `₦${staff.totalDeductions.toLocaleString()}`,
-        `₦${staff.netSalary.toLocaleString()}`
+        staff.designation || 'Staff',
+        staff.fullName.length > 18 ? staff.fullName.substring(0, 15) + '...' : staff.fullName,
+        staff.netSalary.toLocaleString(),
+        staff.accountDetails || 'N/A',
+        ''
       ];
 
       rowData.forEach((data, colIndex) => {
@@ -677,7 +669,7 @@ export const generatePayrollPDF = async (req: AuthRequest, res: Response) => {
     currentX = 50;
     
     // Draw total row
-    const totalData = ['', '', 'TOTAL', '', '', '', '', `₦${Number(payrollSchedule.totalAmount).toLocaleString()}`];
+    const totalData = ['', '', 'Total:', Number(payrollSchedule.totalAmount).toLocaleString(), '', ''];
     
     totalData.forEach((data, colIndex) => {
       page.drawRectangle({
@@ -704,18 +696,20 @@ export const generatePayrollPDF = async (req: AuthRequest, res: Response) => {
     });
 
     // Footer
-    page.drawText(`Generated on: ${new Date().toLocaleDateString()}`, {
+    const totalAmountText = `The total amount payable for the month of ${monthNames[payrollSchedule.month]}, ${payrollSchedule.year} is ₦${Number(payrollSchedule.totalAmount).toLocaleString()}`;
+    
+    page.drawText(totalAmountText, {
       x: 50,
-      y: 50,
-      size: 10,
+      y: currentY - 40,
+      size: 11,
       font: timesRomanFont,
-      color: rgb(0.5, 0.5, 0.5)
+      color: rgb(0, 0, 0)
     });
 
-    page.drawText(`Total Staff: ${staffData.length}`, {
-      x: 300,
-      y: 50,
-      size: 10,
+    page.drawText(`Generated on: ${new Date().toLocaleDateString()} | Total Staff: ${staffData.length}`, {
+      x: 50,
+      y: 30,
+      size: 9,
       font: timesRomanFont,
       color: rgb(0.5, 0.5, 0.5)
     });
@@ -738,6 +732,50 @@ export const generatePayrollPDF = async (req: AuthRequest, res: Response) => {
       error: {
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Failed to generate payroll PDF'
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+export const deletePayrollSchedule = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Check if the payroll schedule exists
+    const payrollSchedule = await prisma.payrollSchedule.findUnique({
+      where: { id }
+    });
+
+    if (!payrollSchedule) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'PAYROLL_NOT_FOUND',
+          message: 'Payroll schedule not found'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Delete the payroll schedule
+    await prisma.payrollSchedule.delete({
+      where: { id }
+    });
+
+    res.json({
+      success: true,
+      message: 'Payroll schedule deleted successfully',
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Delete payroll schedule error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to delete payroll schedule'
       },
       timestamp: new Date().toISOString()
     });

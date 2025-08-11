@@ -239,6 +239,25 @@ const PayrollManagement: React.FC = () => {
     return months[month];
   };
 
+  const handleDeletePayrollSchedule = async (scheduleId: string, month: number, year: number) => {
+    const monthName = getMonthName(month);
+    if (!window.confirm(`Are you sure you want to delete the payroll schedule for ${monthName} ${year}?`)) {
+      return;
+    }
+
+    try {
+      const response = await axios.delete(`/payroll/schedules/${scheduleId}`);
+      if (response.data.success) {
+        alert('Payroll schedule deleted successfully!');
+        fetchPayrollSchedules(); // Refresh the list
+      }
+    } catch (error: any) {
+      console.error('Failed to delete payroll schedule:', error);
+      const message = error.response?.data?.error?.message || 'Failed to delete payroll schedule';
+      alert(`Error: ${message}`);
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
@@ -404,24 +423,44 @@ const PayrollManagement: React.FC = () => {
                             {formatDate(schedule.generatedAt)}
                           </td>
                           <td style={{ padding: '1rem 0.75rem' }}>
-                            <button
-                              onClick={() => handleDownloadPDF(schedule.id, schedule.month, schedule.year)}
-                              style={{
-                                padding: '0.25rem 0.75rem',
-                                backgroundColor: '#10b981',
-                                color: 'white',
-                                borderRadius: '0.375rem',
-                                fontSize: '0.75rem',
-                                fontWeight: '500',
-                                border: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.25rem'
-                              }}
-                            >
-                              📄 Download PDF
-                            </button>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                              <button
+                                onClick={() => handleDownloadPDF(schedule.id, schedule.month, schedule.year)}
+                                style={{
+                                  padding: '0.25rem 0.75rem',
+                                  backgroundColor: '#10b981',
+                                  color: 'white',
+                                  borderRadius: '0.375rem',
+                                  fontSize: '0.75rem',
+                                  fontWeight: '500',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem'
+                                }}
+                              >
+                                📄 Download PDF
+                              </button>
+                              <button
+                                onClick={() => handleDeletePayrollSchedule(schedule.id, schedule.month, schedule.year)}
+                                style={{
+                                  padding: '0.25rem 0.75rem',
+                                  backgroundColor: '#dc2626',
+                                  color: 'white',
+                                  borderRadius: '0.375rem',
+                                  fontSize: '0.75rem',
+                                  fontWeight: '500',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem'
+                                }}
+                              >
+                                🗑️ Delete
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))

@@ -6,7 +6,8 @@ import {
   generatePayroll,
   getPayrollSchedules,
   getPayrollSchedule,
-  generatePayrollPDF
+  generatePayrollPDF,
+  deletePayrollSchedule
 } from '../controllers/payrollController';
 import { authenticateToken } from '../middleware/auth';
 
@@ -25,5 +26,6 @@ router.post('/generate', generatePayroll);
 router.get('/schedules', getPayrollSchedules);
 router.get('/schedules/:id', getPayrollSchedule);
 router.get('/schedules/:id/pdf', generatePayrollPDF);
+router.delete('/schedules/:id', deletePayrollSchedule);
 
 export default router;
