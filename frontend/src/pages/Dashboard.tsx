@@ -45,9 +45,9 @@ const Dashboard: React.FC = () => {
         
         // Fetch all dashboard data
         const [metricsRes, notificationsRes, chartRes] = await Promise.all([
-          axios.get('/api/dashboard/metrics'),
-          axios.get('/api/dashboard/notifications'),
-          axios.get('/api/dashboard/department-chart')
+          axios.get('/dashboard/metrics'),
+          axios.get('/dashboard/notifications'),
+          axios.get('/dashboard/department-chart')
         ]);
 
         if (metricsRes.data.success) {
