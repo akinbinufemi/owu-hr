@@ -640,9 +640,9 @@ export const generatePayroll = async (req: AuthRequest, res: Response) => {
       csvContent += `\nThe total amount payable for the month of ${monthNames[month]}, ${year} is ₦${Number(totalAmount).toLocaleString()} (${numberToWords(totalAmount)} Naira Only)\n`;
       
       // Add external staff note if any
-      const externalStaff = payrollData.filter((staff: any) => staff.isExternallyPaid);
-      if (externalStaff.length > 0) {
-        csvContent += `\nNote: ${externalStaff.map((staff: any) => staff.fullName).join(', ')} ${externalStaff.length === 1 ? 'is' : 'are'} on external payroll and therefore not included in this payment schedule.\n`;
+      const externalStaffForCSV = payrollData.filter((staff: any) => staff.isExternallyPaid);
+      if (externalStaffForCSV.length > 0) {
+        csvContent += `\nNote: ${externalStaffForCSV.map((staff: any) => staff.fullName).join(', ')} ${externalStaffForCSV.length === 1 ? 'is' : 'are'} on external payroll and therefore not included in this payment schedule.\n`;
       }
       
       fs.writeFileSync(csvPath, csvContent);
