@@ -323,11 +323,10 @@ export const generatePayroll = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Get all active staff with their salary structures (excluding externally paid)
+    // Get all active staff with their salary structures (including externally paid for display)
     const staffWithSalaries = await prisma.staff.findMany({
       where: {
-        isActive: true,
-        isExternallyPaid: false
+        isActive: true
       },
       include: {
         salaryStructures: {
@@ -353,6 +352,39 @@ export const generatePayroll = async (req: AuthRequest, res: Response) => {
     let totalAmount = 0;
 
     for (const staff of staffWithSalaries) {
+      // Handle externally paid staff
+      if (staff.isExternallyPaid) {
+        const staffPayroll = {
+          staffId: staff.id,
+          employeeId: staff.employeeId,
+          fullName: staff.fullName,
+          designation: staff.jobTitle || 'Staff',
+          jobTitle: staff.jobTitle,
+          department: staff.department,
+          accountDetails: 'External Payroll',
+          basicSalary: 0,
+          allowances: {
+            housing: 0,
+            transport: 0,
+            medical: 0,
+            other: []
+          },
+          grossSalary: 0,
+          deductions: {
+            tax: 0,
+            pension: 0,
+            loan: 0,
+            other: []
+          },
+          totalDeductions: 0,
+          netSalary: 0,
+          loanDeduction: 0,
+          isExternallyPaid: true
+        };
+        payrollData.push(staffPayroll);
+        continue;
+      }
+
       if (staff.salaryStructures.length === 0) {
         continue; // Skip staff without salary structure
       }
@@ -424,11 +456,12 @@ export const generatePayroll = async (req: AuthRequest, res: Response) => {
         },
         totalDeductions,
         netSalary,
-        loanDeduction // Add this for remark calculation
+        loanDeduction, // Add this for remark calculation
+        isExternallyPaid: false
       };
 
       payrollData.push(staffPayroll);
-      totalAmount += netSalary;
+      totalAmount += netSalary; // Only add to total if not externally paid
 
       // Update loan balances (only for loans that have started)
       for (const loan of staff.loans) {
@@ -499,16 +532,27 @@ export const generatePayroll = async (req: AuthRequest, res: Response) => {
       doc.text(title, (pageWidth - titleWidth) / 2, 20);
       
       // Prepare table data
-      const tableData = payrollData.map((staff: any, index: number) => [
-        index + 1,
-        staff.designation || staff.jobTitle || 'Staff',
-        staff.fullName,
-        `₦${Number(staff.netSalary).toLocaleString()}`,
-        staff.accountDetails || 'N/A',
-        staff.loanDeduction && Number(staff.loanDeduction) > 0 
-          ? `Less ₦${Number(staff.loanDeduction).toLocaleString()} for loan repayment` 
-          : ''
-      ]);
+      const tableData = payrollData.map((staff: any, index: number) => {
+        let remark = '';
+        const remarks = [];
+        
+        if (staff.loanDeduction && Number(staff.loanDeduction) > 0) {
+          remarks.push(`Less ₦${Number(staff.loanDeduction).toLocaleString()} for loan repayment`);
+        }
+        if (staff.isExternallyPaid) {
+          remarks.push('Externally paid');
+        }
+        remark = remarks.join('; ');
+        
+        return [
+          index + 1,
+          staff.designation || staff.jobTitle || 'Staff',
+          staff.fullName,
+          `₦${Number(staff.netSalary).toLocaleString()}`,
+          staff.accountDetails || 'N/A',
+          remark
+        ];
+      });
       
       // Add total row
       tableData.push(['', '', 'Total:', `₦${Number(totalAmount).toLocaleString()}`, '', '']);
@@ -540,12 +584,22 @@ export const generatePayroll = async (req: AuthRequest, res: Response) => {
       const finalY = (doc as any).lastAutoTable.finalY + 20;
       doc.setFontSize(11);
       doc.setFont('helvetica', 'normal');
-      const footerText = `The total amount payable for the month of ${monthNames[month]}, ${year} is ₦${Number(totalAmount).toLocaleString()}`;
+      const footerText = `The total amount payable for the month of ${monthNames[month]}, ${year} is ₦${Number(totalAmount).toLocaleString()} (${numberToWords(totalAmount)} Naira Only)`;
       doc.text(footerText, 20, finalY);
       
-      doc.setFontSize(9);
+      // Add external staff note if any
+      const externalStaff = payrollData.filter((staff: any) => staff.isExternallyPaid);
+      if (externalStaff.length > 0) {
+        doc.setFontSize(9);
+        doc.setTextColor(0, 0, 0);
+        const externalNote = `Note: ${externalStaff.map((staff: any) => staff.fullName).join(', ')} ${externalStaff.length === 1 ? 'is' : 'are'} on external payroll and therefore not included in this payment schedule.`;
+        doc.text(externalNote, 20, finalY + 15, { maxWidth: pageWidth - 40 });
+      }
+      
+      doc.setFontSize(8);
       doc.setTextColor(128, 128, 128);
-      doc.text(`Generated on: ${new Date().toLocaleDateString()} | Total Staff: ${payrollData.length}`, 20, finalY + 10);
+      const internalStaff = payrollData.filter((staff: any) => !staff.isExternallyPaid);
+      doc.text(`Generated on: ${new Date().toLocaleDateString('en-GB')} | Total Staff: ${internalStaff.length} (Internal)${externalStaff.length > 0 ? ` + ${externalStaff.length} (External)` : ''}`, 20, finalY + (externalStaff.length > 0 ? 30 : 15));
       
       // Save PDF file
       const fs = await import('fs');
@@ -568,14 +622,28 @@ export const generatePayroll = async (req: AuthRequest, res: Response) => {
       csvContent += 'SN,Designation,Name,Salary (₦),Account Details,Remark\n';
       
       payrollData.forEach((staff: any, index: number) => {
-        const remark = staff.loanDeduction && Number(staff.loanDeduction) > 0 
-          ? `Less ₦${Number(staff.loanDeduction).toLocaleString()} for loan repayment` 
-          : '';
+        let remark = '';
+        const remarks = [];
+        
+        if (staff.loanDeduction && Number(staff.loanDeduction) > 0) {
+          remarks.push(`Less ₦${Number(staff.loanDeduction).toLocaleString()} for loan repayment`);
+        }
+        if (staff.isExternallyPaid) {
+          remarks.push('Externally paid');
+        }
+        remark = remarks.join('; ');
+        
         csvContent += `${index + 1},"${staff.designation || staff.jobTitle || 'Staff'}","${staff.fullName}",${staff.netSalary},"${staff.accountDetails || 'N/A'}","${remark}"\n`;
       });
       
       csvContent += `\nTotal:,,,${Number(totalAmount).toLocaleString()},,\n`;
-      csvContent += `\nThe total amount payable for the month of ${monthNames[month]}, ${year} is ₦${Number(totalAmount).toLocaleString()}\n`;
+      csvContent += `\nThe total amount payable for the month of ${monthNames[month]}, ${year} is ₦${Number(totalAmount).toLocaleString()} (${numberToWords(totalAmount)} Naira Only)\n`;
+      
+      // Add external staff note if any
+      const externalStaff = payrollData.filter((staff: any) => staff.isExternallyPaid);
+      if (externalStaff.length > 0) {
+        csvContent += `\nNote: ${externalStaff.map((staff: any) => staff.fullName).join(', ')} ${externalStaff.length === 1 ? 'is' : 'are'} on external payroll and therefore not included in this payment schedule.\n`;
+      }
       
       fs.writeFileSync(csvPath, csvContent);
       
@@ -706,64 +774,92 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
   const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
                      'July', 'August', 'September', 'October', 'November', 'December'];
   
-  const totalAmount = Number(payrollSchedule.totalAmount) || 0;
+  // Separate internally and externally paid staff
+  const internalStaff = staffData.filter(staff => !staff.isExternallyPaid);
+  const externalStaff = staffData.filter(staff => staff.isExternallyPaid);
+  
+  const totalAmount = internalStaff.reduce((sum, staff) => sum + (Number(staff.netSalary) || 0), 0);
   
   return `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8">
-      <title>Payroll Schedule</title>
+      <title>Olowu Palace Salary Schedule</title>
       <style>
         body {
-          font-family: Arial, sans-serif;
-          margin: 20px;
-          font-size: 12px;
+          font-family: 'Times New Roman', serif;
+          margin: 15px;
+          font-size: 11px;
+          line-height: 1.2;
+          color: #000;
         }
         .header {
           text-align: center;
-          margin-bottom: 30px;
+          margin-bottom: 25px;
         }
         .header h1 {
-          font-size: 18px;
+          font-size: 14px;
           margin: 0;
           font-weight: bold;
-        }
-        .header h2 {
-          font-size: 16px;
-          margin: 5px 0;
-          font-weight: bold;
+          text-transform: uppercase;
         }
         table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 20px;
+          margin-bottom: 15px;
+          font-size: 10px;
         }
         th, td {
           border: 1px solid #000;
-          padding: 8px;
+          padding: 4px 6px;
           text-align: left;
-          vertical-align: top;
+          vertical-align: middle;
         }
         th {
-          background-color: #f0f0f0;
+          background-color: #f8f8f8;
           font-weight: bold;
           text-align: center;
+          font-size: 10px;
         }
+        .sn-col { width: 4%; text-align: center; }
+        .designation-col { width: 22%; }
+        .name-col { width: 24%; }
+        .salary-col { width: 12%; text-align: right; }
+        .account-col { width: 22%; }
+        .remark-col { width: 16%; }
+        
         .total-row {
-          background-color: #e0e0e0;
+          background-color: #f0f0f0;
           font-weight: bold;
         }
+        .external-staff {
+          text-decoration: line-through;
+          color: #666;
+        }
         .footer {
-          margin-top: 20px;
-          font-size: 11px;
+          margin-top: 15px;
+          font-size: 10px;
+          line-height: 1.4;
         }
         .amount-words {
           font-weight: bold;
+          margin-bottom: 15px;
+        }
+        .external-note {
           margin-top: 10px;
+          font-size: 9px;
+          line-height: 1.3;
+        }
+        .generation-info {
+          margin-top: 15px;
+          font-size: 8px;
+          color: #666;
+          text-align: right;
         }
         @media print {
-          body { margin: 0; }
+          body { margin: 10px; }
+          .generation-info { display: none; }
         }
       </style>
     </head>
@@ -775,12 +871,12 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
       <table>
         <thead>
           <tr>
-            <th style="width: 5%;">SN</th>
-            <th style="width: 20%;">Designation</th>
-            <th style="width: 25%;">Name</th>
-            <th style="width: 15%;">Salary (₦)</th>
-            <th style="width: 20%;">Account Details</th>
-            <th style="width: 15%;">Remark</th>
+            <th class="sn-col">SN</th>
+            <th class="designation-col">Designation</th>
+            <th class="name-col">Name</th>
+            <th class="salary-col">Salary (₦)</th>
+            <th class="account-col">Account Details</th>
+            <th class="remark-col">Remark</th>
           </tr>
         </thead>
         <tbody>
@@ -792,24 +888,32 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
             const accountDetails = staff.accountDetails || 'N/A';
             let remark = '';
             
+            // Build remark based on deductions
+            const remarks = [];
             if (staff.loanDeduction && Number(staff.loanDeduction) > 0) {
-              remark = `Less ₦${Number(staff.loanDeduction).toLocaleString()} for loan repayment`;
+              remarks.push(`Less ₦${Number(staff.loanDeduction).toLocaleString()} for loan repayment`);
             }
+            if (staff.isExternallyPaid) {
+              remarks.push('Externally paid');
+            }
+            remark = remarks.join('; ');
+            
+            const rowClass = staff.isExternallyPaid ? 'external-staff' : '';
             
             return `
-              <tr>
-                <td style="text-align: center;">${serialNumber}</td>
-                <td>${designation}</td>
-                <td>${name}</td>
-                <td style="text-align: right;">${Number(salary).toLocaleString()}</td>
-                <td>${accountDetails}</td>
-                <td>${remark}</td>
+              <tr class="${rowClass}">
+                <td class="sn-col">${serialNumber}</td>
+                <td class="designation-col">${designation}</td>
+                <td class="name-col">${name}</td>
+                <td class="salary-col">${Number(salary).toLocaleString()}</td>
+                <td class="account-col">${accountDetails}</td>
+                <td class="remark-col">${remark}</td>
               </tr>
             `;
           }).join('')}
           <tr class="total-row">
-            <td colspan="3" style="text-align: center;"><strong>Total:</strong></td>
-            <td style="text-align: right;"><strong>${totalAmount.toLocaleString()}</strong></td>
+            <td colspan="3" style="text-align: center; font-weight: bold;">Total:</td>
+            <td class="salary-col" style="font-weight: bold;">${totalAmount.toLocaleString()}</td>
             <td colspan="2"></td>
           </tr>
         </tbody>
@@ -819,8 +923,15 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
         <div class="amount-words">
           The total amount payable for the month of ${monthNames[payrollSchedule.month]}, ${payrollSchedule.year} is ₦${totalAmount.toLocaleString()} (${numberToWords(totalAmount)} Naira Only)
         </div>
-        <div style="margin-top: 20px; font-size: 10px; color: #666;">
-          Generated on: ${new Date().toLocaleDateString()} | Total Staff: ${staffData.length}
+        
+        ${externalStaff.length > 0 ? `
+        <div class="external-note">
+          <strong>Note:</strong> ${externalStaff.map(staff => staff.fullName).join(', ')} ${externalStaff.length === 1 ? 'is' : 'are'} highlighted and crossed out above ${externalStaff.length === 1 ? 'as they are' : 'as they are'} on external payroll and therefore not included in this payment schedule.
+        </div>
+        ` : ''}
+        
+        <div class="generation-info">
+          Generated on: ${new Date().toLocaleDateString('en-GB')} | Total Staff: ${internalStaff.length} (Internal) ${externalStaff.length > 0 ? `+ ${externalStaff.length} (External)` : ''}
         </div>
       </div>
     </body>
