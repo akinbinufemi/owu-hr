@@ -354,6 +354,35 @@ export const generatePayroll = async (req: AuthRequest, res: Response) => {
     for (const staff of staffWithSalaries) {
       // Handle externally paid staff
       if (staff.isExternallyPaid) {
+        // Get salary structure for external staff to show their salary amount
+        let externalSalary = 0;
+        if (staff.salaryStructures.length > 0) {
+          const salaryStructure = staff.salaryStructures[0];
+          const basicSalary = Number(salaryStructure.basicSalary);
+          const housingAllowance = Number(salaryStructure.housingAllowance);
+          const transportAllowance = Number(salaryStructure.transportAllowance);
+          const medicalAllowance = Number(salaryStructure.medicalAllowance);
+          
+          // Parse other allowances
+          const otherAllowances = Array.isArray(salaryStructure.otherAllowances) 
+            ? (salaryStructure.otherAllowances as any[])
+            : [];
+          const otherAllowancesTotal = otherAllowances.reduce((sum, allowance) => sum + (allowance.amount || 0), 0);
+
+          const grossSalary = basicSalary + housingAllowance + transportAllowance + medicalAllowance + otherAllowancesTotal;
+          
+          // Calculate deductions for display
+          const taxDeduction = Number(salaryStructure.taxDeduction);
+          const pensionDeduction = Number(salaryStructure.pensionDeduction);
+          const otherDeductions = Array.isArray(salaryStructure.otherDeductions) 
+            ? (salaryStructure.otherDeductions as any[])
+            : [];
+          const otherDeductionsTotal = otherDeductions.reduce((sum, deduction) => sum + (deduction.amount || 0), 0);
+          
+          const totalDeductions = taxDeduction + pensionDeduction + otherDeductionsTotal;
+          externalSalary = grossSalary - totalDeductions;
+        }
+        
         const staffPayroll = {
           staffId: staff.id,
           employeeId: staff.employeeId,
@@ -377,12 +406,12 @@ export const generatePayroll = async (req: AuthRequest, res: Response) => {
             other: []
           },
           totalDeductions: 0,
-          netSalary: 0,
+          netSalary: externalSalary, // Show the actual salary amount
           loanDeduction: 0,
           isExternallyPaid: true
         };
         payrollData.push(staffPayroll);
-        continue;
+        continue; // Don't add to total amount
       }
 
       if (staff.salaryStructures.length === 0) {
@@ -769,7 +798,7 @@ export const getPayrollSchedule = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// Generate HTML template for PDF
+// Generate HTML template for browser viewing and manual PDF saving
 const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
   const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
                      'July', 'August', 'September', 'October', 'November', 'December'];
@@ -782,93 +811,216 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
   
   return `
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
-      <meta charset="utf-8">
-      <title>Olowu Palace Salary Schedule</title>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Olowu Palace Salary Schedule - ${monthNames[payrollSchedule.month]} ${payrollSchedule.year}</title>
       <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        
         body {
           font-family: 'Times New Roman', serif;
-          margin: 15px;
-          font-size: 11px;
-          line-height: 1.2;
+          font-size: 12px;
+          line-height: 1.4;
           color: #000;
+          background: #fff;
+          padding: 20px;
+          max-width: 1200px;
+          margin: 0 auto;
         }
+        
         .header {
           text-align: center;
-          margin-bottom: 25px;
+          margin-bottom: 30px;
+          border-bottom: 2px solid #000;
+          padding-bottom: 15px;
         }
+        
         .header h1 {
-          font-size: 14px;
-          margin: 0;
+          font-size: 16px;
           font-weight: bold;
           text-transform: uppercase;
+          letter-spacing: 0.5px;
+          margin-bottom: 5px;
         }
-        table {
+        
+        .payroll-table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 15px;
-          font-size: 10px;
+          margin-bottom: 20px;
+          box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
-        th, td {
+        
+        .payroll-table th,
+        .payroll-table td {
           border: 1px solid #000;
-          padding: 4px 6px;
+          padding: 8px 6px;
           text-align: left;
           vertical-align: middle;
+          font-size: 11px;
         }
-        th {
-          background-color: #f8f8f8;
+        
+        .payroll-table th {
+          background-color: #f5f5f5;
           font-weight: bold;
           text-align: center;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+        }
+        
+        .sn-col { 
+          width: 5%; 
+          text-align: center !important; 
+        }
+        .designation-col { 
+          width: 20%; 
+        }
+        .name-col { 
+          width: 22%; 
+        }
+        .salary-col { 
+          width: 15%; 
+          text-align: right !important; 
+          font-weight: 500;
+        }
+        .account-col { 
+          width: 23%; 
           font-size: 10px;
         }
-        .sn-col { width: 4%; text-align: center; }
-        .designation-col { width: 22%; }
-        .name-col { width: 24%; }
-        .salary-col { width: 12%; text-align: right; }
-        .account-col { width: 22%; }
-        .remark-col { width: 16%; }
+        .remark-col { 
+          width: 15%; 
+          font-size: 10px;
+        }
         
         .total-row {
-          background-color: #f0f0f0;
+          background-color: #e8e8e8;
           font-weight: bold;
+          border-top: 2px solid #000;
         }
+        
+        .total-row td {
+          font-weight: bold;
+          font-size: 12px;
+        }
+        
         .external-staff {
           text-decoration: line-through;
           color: #666;
+          background-color: #f9f9f9;
         }
+        
+        .external-staff td {
+          color: #666;
+        }
+        
         .footer {
-          margin-top: 15px;
-          font-size: 10px;
-          line-height: 1.4;
+          margin-top: 25px;
+          padding-top: 15px;
+          border-top: 1px solid #ccc;
         }
+        
         .amount-words {
           font-weight: bold;
-          margin-bottom: 15px;
+          font-size: 13px;
+          margin-bottom: 20px;
+          text-align: center;
+          padding: 10px;
+          background-color: #f8f8f8;
+          border: 1px solid #ddd;
+          border-radius: 4px;
         }
+        
         .external-note {
-          margin-top: 10px;
-          font-size: 9px;
-          line-height: 1.3;
-        }
-        .generation-info {
           margin-top: 15px;
-          font-size: 8px;
-          color: #666;
-          text-align: right;
+          font-size: 11px;
+          line-height: 1.5;
+          padding: 10px;
+          background-color: #fff3cd;
+          border: 1px solid #ffeaa7;
+          border-radius: 4px;
         }
+        
+        .generation-info {
+          margin-top: 20px;
+          font-size: 10px;
+          color: #666;
+          text-align: center;
+          padding: 8px;
+          background-color: #f8f9fa;
+          border-radius: 4px;
+        }
+        
+        .print-button {
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background-color: #007bff;
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 5px;
+          cursor: pointer;
+          font-size: 14px;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+          z-index: 1000;
+        }
+        
+        .print-button:hover {
+          background-color: #0056b3;
+        }
+        
         @media print {
-          body { margin: 10px; }
-          .generation-info { display: none; }
+          body { 
+            margin: 0; 
+            padding: 15px;
+            font-size: 11px;
+          }
+          .print-button { 
+            display: none; 
+          }
+          .generation-info { 
+            display: none; 
+          }
+          .header {
+            margin-bottom: 20px;
+          }
+          .payroll-table {
+            box-shadow: none;
+          }
+          .footer {
+            margin-top: 15px;
+          }
+          .amount-words {
+            background-color: transparent;
+            border: none;
+            font-size: 12px;
+          }
+          .external-note {
+            background-color: transparent;
+            border: 1px solid #000;
+          }
+        }
+        
+        @page {
+          margin: 0.5in;
+          size: A4 landscape;
         }
       </style>
     </head>
     <body>
+      <button class="print-button" onclick="window.print()">Print / Save as PDF</button>
+      
       <div class="header">
         <h1>Olowu Palace Salary Schedule for the Month of ${monthNames[payrollSchedule.month]} ${payrollSchedule.year}</h1>
       </div>
       
-      <table>
+      <table class="payroll-table">
         <thead>
           <tr>
             <th class="sn-col">SN</th>
@@ -885,16 +1037,16 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
             const designation = staff.designation || staff.jobTitle || 'Staff';
             const name = staff.fullName || 'Unknown Staff';
             const salary = staff.netSalary || 0;
-            const accountDetails = staff.accountDetails || 'N/A';
+            const accountDetails = staff.isExternallyPaid ? 'External Payroll' : (staff.accountDetails || 'N/A');
             let remark = '';
             
-            // Build remark based on deductions
+            // Build remark based on deductions and external status
             const remarks = [];
             if (staff.loanDeduction && Number(staff.loanDeduction) > 0) {
               remarks.push(`Less ₦${Number(staff.loanDeduction).toLocaleString()} for loan repayment`);
             }
             if (staff.isExternallyPaid) {
-              remarks.push('Externally paid');
+              remarks.push(`${name} is on Ankor Point payroll`);
             }
             remark = remarks.join('; ');
             
@@ -905,15 +1057,15 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
                 <td class="sn-col">${serialNumber}</td>
                 <td class="designation-col">${designation}</td>
                 <td class="name-col">${name}</td>
-                <td class="salary-col">${Number(salary).toLocaleString()}</td>
+                <td class="salary-col">₦${Number(salary).toLocaleString()}</td>
                 <td class="account-col">${accountDetails}</td>
                 <td class="remark-col">${remark}</td>
               </tr>
             `;
           }).join('')}
           <tr class="total-row">
-            <td colspan="3" style="text-align: center; font-weight: bold;">Total:</td>
-            <td class="salary-col" style="font-weight: bold;">${totalAmount.toLocaleString()}</td>
+            <td colspan="3" style="text-align: center;">Total:</td>
+            <td class="salary-col">₦${totalAmount.toLocaleString()}</td>
             <td colspan="2"></td>
           </tr>
         </tbody>
@@ -926,12 +1078,12 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
         
         ${externalStaff.length > 0 ? `
         <div class="external-note">
-          <strong>Note:</strong> ${externalStaff.map(staff => staff.fullName).join(', ')} ${externalStaff.length === 1 ? 'is' : 'are'} highlighted and crossed out above ${externalStaff.length === 1 ? 'as they are' : 'as they are'} on external payroll and therefore not included in this payment schedule.
+          <strong>Note:</strong> ${externalStaff.map(staff => staff.fullName).join(', ')} ${externalStaff.length === 1 ? 'is' : 'are'} highlighted and crossed out above as ${externalStaff.length === 1 ? 'they are' : 'they are'} on Ankor Point Integrated payroll and therefore not included in this payment schedule.
         </div>
         ` : ''}
         
         <div class="generation-info">
-          Generated on: ${new Date().toLocaleDateString('en-GB')} | Total Staff: ${internalStaff.length} (Internal) ${externalStaff.length > 0 ? `+ ${externalStaff.length} (External)` : ''}
+          Generated on: ${new Date().toLocaleDateString('en-GB')} | Total Staff: ${internalStaff.length} (Internal)${externalStaff.length > 0 ? ` + ${externalStaff.length} (External)` : ''}
         </div>
       </div>
     </body>
@@ -1031,6 +1183,52 @@ const generateSimplePDF = (payrollSchedule: any, staffData: any[]): string => {
     </body>
     </html>
   `;
+};
+
+// Generate HTML page for browser viewing and manual PDF saving
+export const viewPayrollHTML = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { token } = req.query;
+
+    // Verify token if provided
+    if (token) {
+      const jwt = await import('jsonwebtoken');
+      const jwtSecret = process.env.JWT_SECRET;
+      
+      if (!jwtSecret) {
+        return res.status(500).send('<h1>Server Configuration Error</h1><p>JWT secret not configured</p>');
+      }
+
+      try {
+        jwt.verify(token as string, jwtSecret);
+      } catch (error) {
+        return res.status(401).send('<h1>Unauthorized</h1><p>Invalid or expired token</p>');
+      }
+    }
+
+    const payrollSchedule = await prisma.payrollSchedule.findUnique({
+      where: { id }
+    });
+
+    if (!payrollSchedule) {
+      return res.status(404).send('<h1>Not Found</h1><p>Payroll schedule not found</p>');
+    }
+
+    // Parse staff data
+    const staffData = JSON.parse(payrollSchedule.staffData as string);
+
+    // Generate HTML content
+    const htmlContent = generatePayrollHTML(payrollSchedule, staffData);
+
+    // Set content type to HTML
+    res.setHeader('Content-Type', 'text/html');
+    res.send(htmlContent);
+
+  } catch (error) {
+    console.error('Generate payroll HTML error:', error);
+    res.status(500).send('<h1>Server Error</h1><p>Failed to generate payroll HTML</p>');
+  }
 };
 
 export const generatePayrollPDF = async (req: AuthRequest, res: Response) => {

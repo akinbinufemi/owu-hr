@@ -256,6 +256,29 @@ const PayrollManagement: React.FC = () => {
     return months[month];
   };
 
+  const handleViewHTML = async (scheduleId: string, month: number, year: number) => {
+    try {
+      console.log('Opening HTML view for schedule:', scheduleId);
+      
+      // Check if we have auth token
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        alert('Authentication required. Please log in again.');
+        window.location.href = '/login';
+        return;
+      }
+      
+      // Open the HTML view in a new tab
+      const url = `/api/payroll/schedules/${scheduleId}/html?token=${authToken}`;
+      window.open(url, '_blank');
+      
+      console.log('HTML view opened successfully');
+    } catch (error: any) {
+      console.error('Failed to open HTML view:', error);
+      alert('Failed to open HTML view. Please try again.');
+    }
+  };
+
   const handleDownloadCSV = async (scheduleId: string, month: number, year: number) => {
     try {
       console.log('Downloading CSV for schedule:', scheduleId);
@@ -522,6 +545,24 @@ const PayrollManagement: React.FC = () => {
                           </td>
                           <td style={{ padding: '1rem 0.75rem' }}>
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                              <button
+                                onClick={() => handleViewHTML(schedule.id, schedule.month, schedule.year)}
+                                style={{
+                                  padding: '0.25rem 0.75rem',
+                                  backgroundColor: '#8b5cf6',
+                                  color: 'white',
+                                  borderRadius: '0.375rem',
+                                  fontSize: '0.75rem',
+                                  fontWeight: '500',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem'
+                                }}
+                              >
+                                🌐 View
+                              </button>
                               <button
                                 onClick={() => handleDownloadPDF(schedule.id, schedule.month, schedule.year)}
                                 style={{
