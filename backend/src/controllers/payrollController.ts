@@ -528,7 +528,7 @@ export const generatePayroll = async (req: AuthRequest, res: Response) => {
           4: { cellWidth: 50 },
           5: { cellWidth: 50 }
         },
-        didParseCell: function(data) {
+        didParseCell: function(data: any) {
           if (data.row.index === tableData.length - 1) {
             data.cell.styles.fillColor = [224, 224, 224];
             data.cell.styles.fontStyle = 'bold';

@@ -147,11 +147,11 @@ router.get('/schedules/:id/download-pdf', async (req, res) => {
     }
 
     const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
-                       'July', 'August', 'September', 'October', 'November', 'December'];
-    
+      'July', 'August', 'September', 'October', 'November', 'December'];
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="payroll-${monthNames[payrollSchedule.month]}-${payrollSchedule.year}.pdf"`);
-    
+
     const fileStream = fs.createReadStream(filePath);
     fileStream.pipe(res);
   } catch (error) {
@@ -180,11 +180,11 @@ router.get('/schedules/:id/download-csv', async (req, res) => {
     }
 
     const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
-                       'July', 'August', 'September', 'October', 'November', 'December'];
-    
+      'July', 'August', 'September', 'October', 'November', 'December'];
+
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename="payroll-${monthNames[payrollSchedule.month]}-${payrollSchedule.year}.csv"`);
-    
+
     const fileStream = fs.createReadStream(filePath);
     fileStream.pipe(res);
   } catch (error) {
