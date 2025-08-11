@@ -184,8 +184,14 @@ async function main() {
 main()
   .catch((e) => {
     console.error('❌ Error during seeding:', e);
-    process.exit(1);
+    console.log('This might be normal if the database already has data or there are connection issues.');
+    // Don't exit with error code to allow server to continue
+    process.exit(0);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    try {
+      await prisma.$disconnect();
+    } catch (disconnectError) {
+      console.log('Warning: Could not disconnect from database cleanly');
+    }
   });

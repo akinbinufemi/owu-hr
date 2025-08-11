@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import DatePicker from '../components/ui/DatePicker';
-import ApiTest from '../components/debug/ApiTest';
 import axios from 'axios';
 
 interface Loan {
@@ -124,7 +123,7 @@ const LoanManagement: React.FC = () => {
   const fetchLoanSummary = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/api/loans/summary');
+      const response = await axios.get('/loans/summary');
       if (response.data.success) {
         setLoanSummary(response.data.data);
       }
@@ -144,7 +143,7 @@ const LoanManagement: React.FC = () => {
         ...filters
       });
 
-      const response = await axios.get(`/api/loans?${params}`);
+      const response = await axios.get(`/loans?${params}`);
       console.log('Loans API Response:', response.data);
       if (response.data.success) {
         setLoans(response.data.data.loans);
@@ -163,7 +162,7 @@ const LoanManagement: React.FC = () => {
 
   const fetchStaffOptions = async () => {
     try {
-      const response = await axios.get('/api/staff?limit=1000');
+      const response = await axios.get('/staff?limit=1000');
       if (response.data.success) {
         setStaffOptions(response.data.data.staff);
       }
@@ -176,7 +175,7 @@ const LoanManagement: React.FC = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      const response = await axios.post('/api/loans', {
+      const response = await axios.post('/loans', {
         ...createForm,
         amount: parseFloat(createForm.amount),
         repaymentTerms: parseInt(createForm.repaymentTerms),
@@ -219,7 +218,7 @@ const LoanManagement: React.FC = () => {
     if (!selectedLoan) return;
 
     try {
-      const response = await axios.put(`/api/loans/${selectedLoan.id}/status`, {
+      const response = await axios.put(`/loans/${selectedLoan.id}/status`, {
         status: statusUpdateForm.status,
         statusComments: statusUpdateForm.statusComments,
         startDate: statusUpdateForm.startDate ? new Date(statusUpdateForm.startDate).toISOString() : undefined
@@ -242,7 +241,7 @@ const LoanManagement: React.FC = () => {
 
   const handleViewLoanDetails = async (loanId: string) => {
     try {
-      const response = await axios.get(`/api/loans/${loanId}`);
+      const response = await axios.get(`/loans/${loanId}`);
       if (response.data.success) {
         setSelectedLoan(response.data.data);
         setShowLoanDetails(true);
@@ -257,7 +256,7 @@ const LoanManagement: React.FC = () => {
     if (!selectedLoan) return;
 
     try {
-      const response = await axios.post(`/api/loans/${selectedLoan.id}/repayment`, {
+      const response = await axios.post(`/loans/${selectedLoan.id}/repayment`, {
         amount: parseFloat(repaymentForm.amount),
         paymentMethod: repaymentForm.paymentMethod,
         notes: repaymentForm.notes
@@ -334,7 +333,7 @@ const LoanManagement: React.FC = () => {
     if (!selectedLoan) return;
 
     try {
-      const response = await axios.put(`/api/loans/${selectedLoan.id}/pause`, pauseForm);
+      const response = await axios.put(`/loans/${selectedLoan.id}/pause`, pauseForm);
       
       if (response.data.success) {
         alert(`Loan ${pauseForm.isPaused ? 'paused' : 'resumed'} successfully!`);
@@ -408,8 +407,7 @@ const LoanManagement: React.FC = () => {
           </p>
         </div>
 
-        {/* Debug Component - Remove after testing */}
-        <ApiTest />
+
 
         {/* Tabs */}
         <div style={{ marginBottom: '2rem' }}>

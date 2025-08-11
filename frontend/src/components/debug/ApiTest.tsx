@@ -8,9 +8,9 @@ const ApiTest: React.FC = () => {
   const testEndpoints = async () => {
     setLoading(true);
     const tests = {
-      health: '/api/health',
-      loans: '/api/loans',
-      loansSummary: '/api/loans/summary'
+      health: '/health',
+      loans: '/loans',
+      loansSummary: '/loans/summary'
     };
 
     const results: any = {};
