@@ -181,7 +181,7 @@ const PayrollManagement: React.FC = () => {
   };
 
   const handleDeleteSalaryStructure = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this salary structure?')) return;
+    if (!window.confirm('Are you sure you want to delete this salary structure?')) return;
     
     try {
       const response = await axios.delete(`/payroll/structures/${id}`);
