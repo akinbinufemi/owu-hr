@@ -4,6 +4,7 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import prisma from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 import puppeteer from 'puppeteer';
+import axios from 'axios';
 
 // Helper function to convert numbers to words (simplified version)
 const numberToWords = (num: number): string => {
@@ -709,8 +710,101 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
   `;
 };
 
+// PDFShift API integration
+const generatePDFWithPDFShift = async (htmlContent: string): Promise<Buffer> => {
+  const PDFSHIFT_API_KEY = process.env.PDFSHIFT_API_KEY || 'demo'; // Use 'demo' for testing
+  
+  try {
+    console.log('Calling PDFShift API...');
+    const response = await axios.post('https://api.pdfshift.io/v3/convert/pdf', {
+      source: htmlContent,
+      landscape: true,
+      format: 'A4',
+      margin: '20px',
+      print_background: true,
+      wait_for: 'load'
+    }, {
+      headers: {
+        'Authorization': `Basic ${Buffer.from(`api:${PDFSHIFT_API_KEY}`).toString('base64')}`,
+        'Content-Type': 'application/json'
+      },
+      responseType: 'arraybuffer'
+    });
+    
+    console.log('PDFShift API response received, size:', response.data.byteLength);
+    return Buffer.from(response.data);
+  } catch (error) {
+    console.error('PDFShift API error:', error);
+    throw new Error('PDFShift API failed');
+  }
+};
+
+// Fallback: Simple client-side PDF generation
+const generateSimplePDF = (payrollSchedule: any, staffData: any[]): string => {
+  const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                     'July', 'August', 'September', 'October', 'November', 'December'];
+  
+  // Return a simple HTML page that can be printed to PDF by the browser
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Payroll Schedule - ${monthNames[payrollSchedule.month]} ${payrollSchedule.year}</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        .print-button { 
+          background: #007bff; color: white; padding: 10px 20px; 
+          border: none; border-radius: 5px; cursor: pointer; margin-bottom: 20px;
+          font-size: 16px;
+        }
+        .print-button:hover { background: #0056b3; }
+        @media print { .print-button { display: none; } }
+        h1 { text-align: center; margin-bottom: 30px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+        th { background-color: #f0f0f0; font-weight: bold; text-align: center; }
+        .total-row { background-color: #e0e0e0; font-weight: bold; }
+        .footer { margin-top: 20px; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <button class="print-button" onclick="window.print()">🖨️ Print to PDF</button>
+      <h1>Olowu Palace Salary Schedule for the Month of ${monthNames[payrollSchedule.month]} ${payrollSchedule.year}</h1>
+      <table>
+        <thead>
+          <tr>
+            <th>SN</th><th>Designation</th><th>Name</th><th>Salary (₦)</th><th>Account Details</th><th>Remark</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${staffData.map((staff, index) => `
+            <tr>
+              <td>${index + 1}</td>
+              <td>${staff.designation || staff.jobTitle || 'Staff'}</td>
+              <td>${staff.fullName || 'Unknown Staff'}</td>
+              <td style="text-align: right;">${Number(staff.netSalary || 0).toLocaleString()}</td>
+              <td>${staff.accountDetails || 'N/A'}</td>
+              <td>${staff.loanDeduction && Number(staff.loanDeduction) > 0 ? `Less ₦${Number(staff.loanDeduction).toLocaleString()} for loan repayment` : ''}</td>
+            </tr>
+          `).join('')}
+          <tr class="total-row">
+            <td colspan="3"><strong>Total:</strong></td>
+            <td style="text-align: right;"><strong>${Number(payrollSchedule.totalAmount).toLocaleString()}</strong></td>
+            <td colspan="2"></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="footer">
+        <p><strong>The total amount payable for the month of ${monthNames[payrollSchedule.month]}, ${payrollSchedule.year} is ₦${Number(payrollSchedule.totalAmount).toLocaleString()} (${numberToWords(Number(payrollSchedule.totalAmount))} Naira Only)</strong></p>
+        <p>Generated on: ${new Date().toLocaleDateString()} | Total Staff: ${staffData.length}</p>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
 export const generatePayrollPDF = async (req: AuthRequest, res: Response) => {
-  let browser;
   try {
     const { id } = req.params;
     console.log('Generating PDF for payroll schedule:', id);
@@ -750,76 +844,39 @@ export const generatePayrollPDF = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Generate HTML content
-    const htmlContent = generatePayrollHTML(payrollSchedule, staffData);
-    console.log('HTML content generated');
-
-    // Launch Puppeteer
-    console.log('Launching Puppeteer...');
-    browser = await puppeteer.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-gpu'
-      ]
-    });
-
-    const page = await browser.newPage();
-    console.log('Puppeteer page created');
-
-    // Set content and generate PDF
-    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-    console.log('HTML content set');
-
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      landscape: true,
-      margin: {
-        top: '20px',
-        right: '20px',
-        bottom: '20px',
-        left: '20px'
-      },
-      printBackground: true
-    });
-
-    console.log('PDF generated, size:', pdfBuffer.length);
-
-    // Close browser
-    await browser.close();
-    console.log('Browser closed');
-
-    // Set response headers
-    const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
-                       'July', 'August', 'September', 'October', 'November', 'December'];
-    
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="payroll-${monthNames[payrollSchedule.month]}-${payrollSchedule.year}.pdf"`);
-    res.setHeader('Content-Length', pdfBuffer.length);
-    console.log('Response headers set');
-
-    // Send PDF
-    res.send(pdfBuffer);
-    console.log('PDF sent successfully');
+    // Try PDFShift API first, fallback to simple HTML
+    try {
+      const htmlContent = generatePayrollHTML(payrollSchedule, staffData);
+      const pdfBuffer = await generatePDFWithPDFShift(htmlContent);
+      
+      const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                         'July', 'August', 'September', 'October', 'November', 'December'];
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="payroll-${monthNames[payrollSchedule.month]}-${payrollSchedule.year}.pdf"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      
+      res.send(pdfBuffer);
+      console.log('PDF sent successfully via PDFShift');
+      
+    } catch (pdfError) {
+      console.log('PDFShift failed, falling back to simple HTML:', pdfError);
+      
+      // Fallback: Return HTML that can be printed to PDF
+      const htmlContent = generateSimplePDF(payrollSchedule, staffData);
+      const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                         'July', 'August', 'September', 'October', 'November', 'December'];
+      
+      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Content-Disposition', `inline; filename="payroll-${monthNames[payrollSchedule.month]}-${payrollSchedule.year}.html"`);
+      
+      res.send(htmlContent);
+      console.log('HTML sent successfully as fallback');
+    }
 
   } catch (error) {
     console.error('Generate payroll PDF error:', error);
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-    
-    // Close browser if it was opened
-    if (browser) {
-      try {
-        await browser.close();
-      } catch (closeError) {
-        console.error('Error closing browser:', closeError);
-      }
-    }
     
     res.status(500).json({
       success: false,

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { 
+import {
   getSalaryStructures,
   createSalaryStructure,
   updateSalaryStructure,
@@ -59,6 +59,58 @@ router.get('/schedules/:id/debug', async (req, res) => {
   }
 });
 
+// CSV export endpoint as fallback (no auth required for debugging)
+router.get('/schedules/:id/csv', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const payrollSchedule = await prisma.payrollSchedule.findUnique({
+      where: { id }
+    });
+
+    if (!payrollSchedule) {
+      return res.status(404).json({
+        success: false,
+        error: { message: 'Payroll schedule not found' }
+      });
+    }
+
+    const staffData = JSON.parse(payrollSchedule.staffData as string);
+    const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'];
+
+    // Create CSV content
+    let csvContent = `Olowu Palace Salary Schedule for the Month of ${monthNames[payrollSchedule.month]} ${payrollSchedule.year}\n\n`;
+    csvContent += 'SN,Designation,Name,Salary (₦),Account Details,Remark\n';
+
+    staffData.forEach((staff: any, index: number) => {
+      const serialNumber = index + 1;
+      const designation = staff.designation || staff.jobTitle || 'Staff';
+      const name = staff.fullName || 'Unknown Staff';
+      const salary = staff.netSalary || 0;
+      const accountDetails = staff.accountDetails || 'N/A';
+      let remark = '';
+
+      if (staff.loanDeduction && Number(staff.loanDeduction) > 0) {
+        remark = `Less ₦${Number(staff.loanDeduction).toLocaleString()} for loan repayment`;
+      }
+
+      csvContent += `${serialNumber},"${designation}","${name}",${salary},"${accountDetails}","${remark}"\n`;
+    });
+
+    csvContent += `\nTotal:,,,${Number(payrollSchedule.totalAmount).toLocaleString()},,\n`;
+    csvContent += `\nThe total amount payable for the month of ${monthNames[payrollSchedule.month]}, ${payrollSchedule.year} is ₦${Number(payrollSchedule.totalAmount).toLocaleString()}\n`;
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="payroll-${monthNames[payrollSchedule.month]}-${payrollSchedule.year}.csv"`);
+    res.send(csvContent);
+
+  } catch (error) {
+    console.error('CSV export error:', error);
+    res.status(500).json({ error: 'Failed to generate CSV' });
+  }
+});
+
 // All other payroll routes require authentication
 router.use(authenticateToken);
 
@@ -78,11 +130,11 @@ router.delete('/schedules/:id', deletePayrollSchedule);
 router.get('/test-pdf', async (req, res) => {
   try {
     const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
-    
+
     const pdfDoc = await PDFDocument.create();
     const page = pdfDoc.addPage([595, 842]);
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    
+
     page.drawText('Test PDF Generation', {
       x: 50,
       y: 750,
@@ -90,9 +142,9 @@ router.get('/test-pdf', async (req, res) => {
       font,
       color: rgb(0, 0, 0),
     });
-    
+
     const pdfBytes = await pdfDoc.save();
-    
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'attachment; filename="test.pdf"');
     res.send(Buffer.from(pdfBytes));
