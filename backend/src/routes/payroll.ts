@@ -10,6 +10,7 @@ import {
   deletePayrollSchedule
 } from '../controllers/payrollController';
 import { authenticateToken } from '../middleware/auth';
+import prisma from '../config/database';
 
 const router = Router();
 
@@ -53,6 +54,51 @@ router.get('/test-pdf', async (req, res) => {
   } catch (error) {
     console.error('Test PDF error:', error);
     res.status(500).json({ error: 'Failed to generate test PDF' });
+  }
+});
+
+// Debug endpoint to check payroll schedule data
+router.get('/schedules/:id/debug', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const payrollSchedule = await prisma.payrollSchedule.findUnique({
+      where: { id }
+    });
+
+    if (!payrollSchedule) {
+      return res.status(404).json({ error: 'Payroll schedule not found' });
+    }
+
+    let staffData;
+    try {
+      staffData = JSON.parse(payrollSchedule.staffData as string);
+    } catch (parseError) {
+      return res.json({
+        payrollSchedule: {
+          id: payrollSchedule.id,
+          month: payrollSchedule.month,
+          year: payrollSchedule.year,
+          totalAmount: payrollSchedule.totalAmount,
+          staffDataRaw: payrollSchedule.staffData,
+          parseError: parseError instanceof Error ? parseError.message : 'Unknown parse error'
+        }
+      });
+    }
+
+    res.json({
+      payrollSchedule: {
+        id: payrollSchedule.id,
+        month: payrollSchedule.month,
+        year: payrollSchedule.year,
+        totalAmount: payrollSchedule.totalAmount,
+        staffCount: staffData.length,
+        sampleStaff: staffData.slice(0, 2), // First 2 staff members for debugging
+        staffDataStructure: staffData.length > 0 ? Object.keys(staffData[0]) : []
+      }
+    });
+  } catch (error) {
+    console.error('Debug endpoint error:', error);
+    res.status(500).json({ error: 'Debug failed', details: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 

@@ -608,34 +608,61 @@ export const generatePayrollPDF = async (req: AuthRequest, res: Response) => {
       color: rgb(0, 0, 0)
     });
 
-    // Simple staff list
+    // Simple staff list with robust error handling
     let yPosition = height - 120;
+    console.log('Processing staff data for PDF, count:', staffData.length);
+    
     staffData.forEach((staff: any, index: number) => {
-      const text = `${index + 1}. ${staff.fullName} - ₦${staff.netSalary?.toLocaleString() || '0'}`;
-      page.drawText(text, {
-        x: 50,
-        y: yPosition,
-        size: 12,
-        font: timesRomanFont,
-        color: rgb(0, 0, 0)
-      });
-      yPosition -= 20;
-      
-      // Add new page if needed
-      if (yPosition < 50) {
-        const newPage = pdfDoc.addPage([842, 595]);
-        yPosition = height - 50;
+      try {
+        // Safely extract staff data with fallbacks
+        const name = staff.fullName || staff.name || 'Unknown Staff';
+        const salary = staff.netSalary || staff.salary || staff.basicSalary || 0;
+        const text = `${index + 1}. ${name} - ₦${Number(salary).toLocaleString()}`;
+        
+        console.log(`Processing staff ${index + 1}: ${name}, salary: ${salary}`);
+        
+        page.drawText(text, {
+          x: 50,
+          y: yPosition,
+          size: 12,
+          font: timesRomanFont,
+          color: rgb(0, 0, 0)
+        });
+        yPosition -= 20;
+        
+        // Add new page if needed
+        if (yPosition < 50) {
+          console.log('Adding new page for more staff');
+          const newPage = pdfDoc.addPage([842, 595]);
+          yPosition = height - 50;
+        }
+      } catch (staffError) {
+        console.error(`Error processing staff ${index + 1}:`, staffError);
+        // Continue with next staff member
       }
     });
 
-    // Total
-    page.drawText(`Total: ₦${Number(payrollSchedule.totalAmount).toLocaleString()}`, {
-      x: 50,
-      y: yPosition - 30,
-      size: 14,
-      font: timesRomanBoldFont,
-      color: rgb(0, 0, 0)
-    });
+    // Total with error handling
+    try {
+      const totalAmount = Number(payrollSchedule.totalAmount) || 0;
+      console.log('Adding total amount:', totalAmount);
+      page.drawText(`Total: ₦${totalAmount.toLocaleString()}`, {
+        x: 50,
+        y: yPosition - 30,
+        size: 14,
+        font: timesRomanBoldFont,
+        color: rgb(0, 0, 0)
+      });
+    } catch (totalError) {
+      console.error('Error adding total:', totalError);
+      page.drawText('Total: ₦0', {
+        x: 50,
+        y: yPosition - 30,
+        size: 14,
+        font: timesRomanBoldFont,
+        color: rgb(0, 0, 0)
+      });
+    }
 
     // Generate PDF bytes
     console.log('Generating PDF bytes...');
