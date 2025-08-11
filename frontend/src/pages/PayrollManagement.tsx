@@ -216,9 +216,21 @@ const PayrollManagement: React.FC = () => {
     try {
       console.log('Attempting to download PDF for schedule:', scheduleId);
       console.log('API URL:', axios.defaults.baseURL);
+      console.log('Auth header:', axios.defaults.headers.common['Authorization']);
+      
+      // Check if we have auth token
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        alert('Authentication required. Please log in again.');
+        window.location.href = '/login';
+        return;
+      }
       
       const response = await axios.get(`/payroll/schedules/${scheduleId}/pdf`, {
-        responseType: 'blob'
+        responseType: 'blob',
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
       });
       
       console.log('PDF response received:', response.status, response.headers);
@@ -407,7 +419,18 @@ const PayrollManagement: React.FC = () => {
               <button
                 onClick={async () => {
                   try {
-                    const response = await axios.get('/payroll/test-pdf', { responseType: 'blob' });
+                    const authToken = localStorage.getItem('authToken');
+                    if (!authToken) {
+                      alert('Authentication required. Please log in again.');
+                      return;
+                    }
+                    
+                    const response = await axios.get('/payroll/test-pdf', { 
+                      responseType: 'blob',
+                      headers: {
+                        'Authorization': `Bearer ${authToken}`
+                      }
+                    });
                     const blob = new Blob([response.data], { type: 'application/pdf' });
                     const url = window.URL.createObjectURL(blob);
                     const link = document.createElement('a');
