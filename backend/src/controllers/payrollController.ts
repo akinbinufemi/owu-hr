@@ -3,6 +3,7 @@ import Joi from 'joi';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import prisma from '../config/database';
 import { AuthRequest } from '../middleware/auth';
+import puppeteer from 'puppeteer';
 
 // Helper function to convert numbers to words (simplified version)
 const numberToWords = (num: number): string => {
@@ -581,7 +582,135 @@ export const getPayrollSchedule = async (req: AuthRequest, res: Response) => {
   }
 };
 
+// Generate HTML template for PDF
+const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
+  const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                     'July', 'August', 'September', 'October', 'November', 'December'];
+  
+  const totalAmount = Number(payrollSchedule.totalAmount) || 0;
+  
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Payroll Schedule</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          margin: 20px;
+          font-size: 12px;
+        }
+        .header {
+          text-align: center;
+          margin-bottom: 30px;
+        }
+        .header h1 {
+          font-size: 18px;
+          margin: 0;
+          font-weight: bold;
+        }
+        .header h2 {
+          font-size: 16px;
+          margin: 5px 0;
+          font-weight: bold;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 20px;
+        }
+        th, td {
+          border: 1px solid #000;
+          padding: 8px;
+          text-align: left;
+          vertical-align: top;
+        }
+        th {
+          background-color: #f0f0f0;
+          font-weight: bold;
+          text-align: center;
+        }
+        .total-row {
+          background-color: #e0e0e0;
+          font-weight: bold;
+        }
+        .footer {
+          margin-top: 20px;
+          font-size: 11px;
+        }
+        .amount-words {
+          font-weight: bold;
+          margin-top: 10px;
+        }
+        @media print {
+          body { margin: 0; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Olowu Palace Salary Schedule for the Month of ${monthNames[payrollSchedule.month]} ${payrollSchedule.year}</h1>
+      </div>
+      
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 5%;">SN</th>
+            <th style="width: 20%;">Designation</th>
+            <th style="width: 25%;">Name</th>
+            <th style="width: 15%;">Salary (₦)</th>
+            <th style="width: 20%;">Account Details</th>
+            <th style="width: 15%;">Remark</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${staffData.map((staff, index) => {
+            const serialNumber = index + 1;
+            const designation = staff.designation || staff.jobTitle || 'Staff';
+            const name = staff.fullName || 'Unknown Staff';
+            const salary = staff.netSalary || 0;
+            const accountDetails = staff.accountDetails || 'N/A';
+            let remark = '';
+            
+            if (staff.loanDeduction && Number(staff.loanDeduction) > 0) {
+              remark = `Less ₦${Number(staff.loanDeduction).toLocaleString()} for loan repayment`;
+            }
+            
+            return `
+              <tr>
+                <td style="text-align: center;">${serialNumber}</td>
+                <td>${designation}</td>
+                <td>${name}</td>
+                <td style="text-align: right;">${Number(salary).toLocaleString()}</td>
+                <td>${accountDetails}</td>
+                <td>${remark}</td>
+              </tr>
+            `;
+          }).join('')}
+          <tr class="total-row">
+            <td colspan="3" style="text-align: center;"><strong>Total:</strong></td>
+            <td style="text-align: right;"><strong>${totalAmount.toLocaleString()}</strong></td>
+            <td colspan="2"></td>
+          </tr>
+        </tbody>
+      </table>
+      
+      <div class="footer">
+        <div class="amount-words">
+          The total amount payable for the month of ${monthNames[payrollSchedule.month]}, ${payrollSchedule.year} is ₦${totalAmount.toLocaleString()} (${numberToWords(totalAmount)} Naira Only)
+        </div>
+        <div style="margin-top: 20px; font-size: 10px; color: #666;">
+          Generated on: ${new Date().toLocaleDateString()} | Total Staff: ${staffData.length}
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
 export const generatePayrollPDF = async (req: AuthRequest, res: Response) => {
+  let browser;
   try {
     const { id } = req.params;
     console.log('Generating PDF for payroll schedule:', id);
@@ -621,206 +750,77 @@ export const generatePayrollPDF = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Create PDF document
-    console.log('Creating PDF document...');
-    const pdfDoc = await PDFDocument.create();
-    console.log('PDF document created');
-    
-    const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
-    const timesRomanBoldFont = await pdfDoc.embedFont(StandardFonts.TimesRomanBold);
-    console.log('Fonts embedded');
+    // Generate HTML content
+    const htmlContent = generatePayrollHTML(payrollSchedule, staffData);
+    console.log('HTML content generated');
 
-    const page = pdfDoc.addPage([842, 595]); // A4 landscape
-    const { width, height } = page.getSize();
-    console.log('Page added, dimensions:', width, 'x', height);
+    // Launch Puppeteer
+    console.log('Launching Puppeteer...');
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-gpu'
+      ]
+    });
 
-    // Professional header matching the template
+    const page = await browser.newPage();
+    console.log('Puppeteer page created');
+
+    // Set content and generate PDF
+    await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+    console.log('HTML content set');
+
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      landscape: true,
+      margin: {
+        top: '20px',
+        right: '20px',
+        bottom: '20px',
+        left: '20px'
+      },
+      printBackground: true
+    });
+
+    console.log('PDF generated, size:', pdfBuffer.length);
+
+    // Close browser
+    await browser.close();
+    console.log('Browser closed');
+
+    // Set response headers
     const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
                        'July', 'August', 'September', 'October', 'November', 'December'];
     
-    // Center the header text
-    const headerText = `Olowu Palace Salary Schedule for the Month of ${monthNames[payrollSchedule.month]} ${payrollSchedule.year}`;
-    const headerWidth = headerText.length * 8; // Approximate width
-    const centerX = (width - headerWidth) / 2;
-    
-    page.drawText(headerText, {
-      x: Math.max(50, centerX),
-      y: height - 50,
-      size: 16,
-      font: timesRomanBoldFont,
-      color: rgb(0, 0, 0)
-    });
-
-    // Table setup
-    const startY = height - 100;
-    const rowHeight = 25;
-    let currentY = startY;
-    
-    // Table headers matching the template
-    const headers = ['SN', 'Designation', 'Name', 'Salary (₦)', 'Account Details', 'Remark'];
-    const columnWidths = [40, 120, 150, 100, 150, 120];
-    let currentX = 50;
-
-    // Draw header row with borders
-    headers.forEach((header, index) => {
-      // Draw cell border
-      page.drawRectangle({
-        x: currentX,
-        y: currentY - 5,
-        width: columnWidths[index],
-        height: rowHeight,
-        borderColor: rgb(0, 0, 0),
-        borderWidth: 1,
-        color: rgb(0.95, 0.95, 0.95)
-      });
-
-      // Draw header text
-      page.drawText(header, {
-        x: currentX + 5,
-        y: currentY + 8,
-        size: 10,
-        font: timesRomanBoldFont,
-        color: rgb(0, 0, 0)
-      });
-
-      currentX += columnWidths[index];
-    });
-
-    currentY -= rowHeight;
-    console.log('Processing staff data for PDF, count:', staffData.length);
-    
-    // Draw data rows
-    staffData.forEach((staff: any, index: number) => {
-      try {
-        currentX = 50;
-        
-        // Extract staff data with fallbacks
-        const serialNumber = (index + 1).toString();
-        const designation = staff.designation || staff.position || 'Staff';
-        const name = staff.fullName || staff.name || 'Unknown Staff';
-        const netSalary = staff.netSalary || staff.salary || staff.basicSalary || 0;
-        const accountDetails = staff.accountDetails || staff.bankAccount || 'N/A';
-        
-        // Calculate remark for loan deductions
-        let remark = '';
-        if (staff.loanDeduction && Number(staff.loanDeduction) > 0) {
-          remark = `Less ₦${Number(staff.loanDeduction).toLocaleString()} for loan repayment`;
-        }
-        
-        const rowData = [serialNumber, designation, name, Number(netSalary).toLocaleString(), accountDetails, remark];
-        
-        console.log(`Processing staff ${index + 1}: ${name}, net salary: ${netSalary}`);
-        
-        // Draw each cell
-        rowData.forEach((data, colIndex) => {
-          // Draw cell border
-          page.drawRectangle({
-            x: currentX,
-            y: currentY - 5,
-            width: columnWidths[colIndex],
-            height: rowHeight,
-            borderColor: rgb(0, 0, 0),
-            borderWidth: 1
-          });
-
-          // Draw cell text (truncate if too long)
-          let displayText = data;
-          if (displayText.length > 20 && colIndex !== 3) { // Don't truncate salary
-            displayText = displayText.substring(0, 17) + '...';
-          }
-
-          page.drawText(displayText, {
-            x: currentX + 3,
-            y: currentY + 8,
-            size: 9,
-            font: timesRomanFont,
-            color: rgb(0, 0, 0)
-          });
-
-          currentX += columnWidths[colIndex];
-        });
-
-        currentY -= rowHeight;
-        
-        // Add new page if needed
-        if (currentY < 100) {
-          console.log('Adding new page for more staff');
-          const newPage = pdfDoc.addPage([842, 595]);
-          currentY = height - 100;
-        }
-      } catch (staffError) {
-        console.error(`Error processing staff ${index + 1}:`, staffError);
-      }
-    });
-
-    // Total row
-    currentY -= 10;
-    currentX = 50;
-    
-    try {
-      const totalAmount = Number(payrollSchedule.totalAmount) || 0;
-      console.log('Adding total row:', totalAmount);
-      
-      const totalRowData = ['', '', 'Total:', totalAmount.toLocaleString(), '', ''];
-      
-      totalRowData.forEach((data, colIndex) => {
-        // Draw cell border (thicker for total row)
-        page.drawRectangle({
-          x: currentX,
-          y: currentY - 5,
-          width: columnWidths[colIndex],
-          height: rowHeight,
-          borderColor: rgb(0, 0, 0),
-          borderWidth: 2,
-          color: rgb(0.9, 0.9, 0.9)
-        });
-
-        if (data) {
-          page.drawText(data, {
-            x: currentX + 3,
-            y: currentY + 8,
-            size: 10,
-            font: timesRomanBoldFont,
-            color: rgb(0, 0, 0)
-          });
-        }
-
-        currentX += columnWidths[colIndex];
-      });
-      
-      // Footer text matching the template
-      const totalAmountText = `The total amount payable for the month of ${monthNames[payrollSchedule.month]}, ${payrollSchedule.year} is ₦${totalAmount.toLocaleString()} (${numberToWords(totalAmount)} Naira Only)`;
-      
-      page.drawText(totalAmountText, {
-        x: 50,
-        y: currentY - 40,
-        size: 11,
-        font: timesRomanFont,
-        color: rgb(0, 0, 0)
-      });
-      
-    } catch (totalError) {
-      console.error('Error adding total:', totalError);
-    }
-
-    // Generate PDF bytes
-    console.log('Generating PDF bytes...');
-    const pdfBytes = await pdfDoc.save();
-    console.log('PDF bytes generated, size:', pdfBytes.length);
-
-    // Set response headers
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="payroll-${monthNames[payrollSchedule.month]}-${payrollSchedule.year}.pdf"`);
-    res.setHeader('Content-Length', pdfBytes.length);
+    res.setHeader('Content-Length', pdfBuffer.length);
     console.log('Response headers set');
 
     // Send PDF
-    res.send(Buffer.from(pdfBytes));
+    res.send(pdfBuffer);
     console.log('PDF sent successfully');
 
   } catch (error) {
     console.error('Generate payroll PDF error:', error);
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    
+    // Close browser if it was opened
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (closeError) {
+        console.error('Error closing browser:', closeError);
+      }
+    }
+    
     res.status(500).json({
       success: false,
       error: {

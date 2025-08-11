@@ -278,6 +278,33 @@ const PayrollManagement: React.FC = () => {
     return months[month];
   };
 
+  const handleDownloadCSV = async (scheduleId: string, month: number, year: number) => {
+    try {
+      console.log('Attempting to download CSV for schedule:', scheduleId);
+      
+      const response = await axios.get(`/payroll/schedules/${scheduleId}/csv`, {
+        responseType: 'blob'
+      });
+      
+      console.log('CSV response received:', response.status);
+      
+      const blob = new Blob([response.data], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `payroll-${getMonthName(month)}-${year}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      console.log('CSV download completed successfully');
+    } catch (error: any) {
+      console.error('Failed to download CSV:', error);
+      alert('Failed to download CSV');
+    }
+  };
+
   const handleDeletePayrollSchedule = async (scheduleId: string, month: number, year: number) => {
     const monthName = getMonthName(month);
     if (!window.confirm(`Are you sure you want to delete the payroll schedule for ${monthName} ${year}?`)) {
@@ -505,7 +532,7 @@ const PayrollManagement: React.FC = () => {
                             {formatDate(schedule.generatedAt)}
                           </td>
                           <td style={{ padding: '1rem 0.75rem' }}>
-                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                               <button
                                 onClick={() => handleDownloadPDF(schedule.id, schedule.month, schedule.year)}
                                 style={{
@@ -522,7 +549,25 @@ const PayrollManagement: React.FC = () => {
                                   gap: '0.25rem'
                                 }}
                               >
-                                📄 Download PDF
+                                📄 PDF
+                              </button>
+                              <button
+                                onClick={() => handleDownloadCSV(schedule.id, schedule.month, schedule.year)}
+                                style={{
+                                  padding: '0.25rem 0.75rem',
+                                  backgroundColor: '#0ea5e9',
+                                  color: 'white',
+                                  borderRadius: '0.375rem',
+                                  fontSize: '0.75rem',
+                                  fontWeight: '500',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem'
+                                }}
+                              >
+                                📊 CSV
                               </button>
                               <button
                                 onClick={() => handleDeletePayrollSchedule(schedule.id, schedule.month, schedule.year)}
