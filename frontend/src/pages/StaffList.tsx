@@ -52,7 +52,7 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ onClose, onSuccess }) => 
 
   const fetchManagers = async () => {
     try {
-      const response = await axios.get('/staff?limit=100');
+      const response = await axios.get('/api/staff?limit=100');
       if (response.data.success) {
         setManagers(response.data.data.staff);
       }
@@ -599,7 +599,7 @@ const StaffList: React.FC = () => {
         ...filters
       });
 
-      const response = await axios.get(`/staff?${params}`);
+      const response = await axios.get(`/api/staff?${params}`);
       
       if (response.data.success) {
         setStaff(response.data.data.staff);
@@ -617,7 +617,7 @@ const StaffList: React.FC = () => {
 
   const fetchDepartments = async () => {
     try {
-      const response = await axios.get('/staff/options');
+      const response = await axios.get('/api/staff/options');
       if (response.data.success) {
         setDepartments(response.data.data.departments);
       }

@@ -123,7 +123,7 @@ const LoanManagement: React.FC = () => {
   const fetchLoanSummary = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/loans/summary');
+      const response = await axios.get('/api/loans/summary');
       if (response.data.success) {
         setLoanSummary(response.data.data);
       }
@@ -143,7 +143,7 @@ const LoanManagement: React.FC = () => {
         ...filters
       });
 
-      const response = await axios.get(`/loans?${params}`);
+      const response = await axios.get(`/api/loans?${params}`);
       console.log('Loans API Response:', response.data);
       if (response.data.success) {
         setLoans(response.data.data.loans);
@@ -162,7 +162,7 @@ const LoanManagement: React.FC = () => {
 
   const fetchStaffOptions = async () => {
     try {
-      const response = await axios.get('/staff?limit=1000');
+      const response = await axios.get('/api/staff?limit=1000');
       if (response.data.success) {
         setStaffOptions(response.data.data.staff);
       }
@@ -175,7 +175,7 @@ const LoanManagement: React.FC = () => {
     e.preventDefault();
     try {
       setLoading(true);
-      const response = await axios.post('/loans', {
+      const response = await axios.post('/api/loans', {
         ...createForm,
         amount: parseFloat(createForm.amount),
         repaymentTerms: parseInt(createForm.repaymentTerms),
@@ -218,7 +218,7 @@ const LoanManagement: React.FC = () => {
     if (!selectedLoan) return;
 
     try {
-      const response = await axios.put(`/loans/${selectedLoan.id}/status`, {
+      const response = await axios.put(`/api/loans/${selectedLoan.id}/status`, {
         status: statusUpdateForm.status,
         statusComments: statusUpdateForm.statusComments,
         startDate: statusUpdateForm.startDate ? new Date(statusUpdateForm.startDate).toISOString() : undefined
@@ -241,7 +241,7 @@ const LoanManagement: React.FC = () => {
 
   const handleViewLoanDetails = async (loanId: string) => {
     try {
-      const response = await axios.get(`/loans/${loanId}`);
+      const response = await axios.get(`/api/loans/${loanId}`);
       if (response.data.success) {
         setSelectedLoan(response.data.data);
         setShowLoanDetails(true);
@@ -256,7 +256,7 @@ const LoanManagement: React.FC = () => {
     if (!selectedLoan) return;
 
     try {
-      const response = await axios.post(`/loans/${selectedLoan.id}/repayment`, {
+      const response = await axios.post(`/api/loans/${selectedLoan.id}/repayment`, {
         amount: parseFloat(repaymentForm.amount),
         paymentMethod: repaymentForm.paymentMethod,
         notes: repaymentForm.notes
@@ -333,7 +333,7 @@ const LoanManagement: React.FC = () => {
     if (!selectedLoan) return;
 
     try {
-      const response = await axios.put(`/loans/${selectedLoan.id}/pause`, pauseForm);
+      const response = await axios.put(`/api/loans/${selectedLoan.id}/pause`, pauseForm);
       
       if (response.data.success) {
         alert(`Loan ${pauseForm.isPaused ? 'paused' : 'resumed'} successfully!`);
