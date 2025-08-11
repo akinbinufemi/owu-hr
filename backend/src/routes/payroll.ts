@@ -126,6 +126,73 @@ router.get('/schedules/:id', getPayrollSchedule);
 router.get('/schedules/:id/pdf', generatePayrollPDF);
 router.delete('/schedules/:id', deletePayrollSchedule);
 
+// Direct file download endpoints
+router.get('/schedules/:id/download-pdf', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const payrollSchedule = await prisma.payrollSchedule.findUnique({
+      where: { id }
+    });
+
+    if (!payrollSchedule || !payrollSchedule.pdfFilePath) {
+      return res.status(404).json({ error: 'PDF file not found' });
+    }
+
+    const fs = await import('fs');
+    const path = await import('path');
+    const filePath = path.join(process.cwd(), payrollSchedule.pdfFilePath);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'PDF file not found on disk' });
+    }
+
+    const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                       'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="payroll-${monthNames[payrollSchedule.month]}-${payrollSchedule.year}.pdf"`);
+    
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error('PDF download error:', error);
+    res.status(500).json({ error: 'Failed to download PDF' });
+  }
+});
+
+router.get('/schedules/:id/download-csv', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const payrollSchedule = await prisma.payrollSchedule.findUnique({
+      where: { id }
+    });
+
+    if (!payrollSchedule || !payrollSchedule.csvFilePath) {
+      return res.status(404).json({ error: 'CSV file not found' });
+    }
+
+    const fs = await import('fs');
+    const path = await import('path');
+    const filePath = path.join(process.cwd(), payrollSchedule.csvFilePath);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'CSV file not found on disk' });
+    }
+
+    const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                       'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="payroll-${monthNames[payrollSchedule.month]}-${payrollSchedule.year}.csv"`);
+    
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error('CSV download error:', error);
+    res.status(500).json({ error: 'Failed to download CSV' });
+  }
+});
+
 // Test PDF endpoint
 router.get('/test-pdf', async (req, res) => {
   try {

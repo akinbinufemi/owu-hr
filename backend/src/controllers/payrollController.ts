@@ -477,6 +477,124 @@ export const generatePayroll = async (req: AuthRequest, res: Response) => {
       }
     });
 
+    // Generate and store PDF and CSV files
+    try {
+      const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                         'July', 'August', 'September', 'October', 'November', 'December'];
+      
+      const fileName = `payroll-${monthNames[month]}-${year}-${payrollSchedule.id}`;
+      
+      // Generate PDF content using jsPDF (server-side)
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
+      
+      const doc = new jsPDF('landscape');
+      
+      // Add title
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      const title = `Olowu Palace Salary Schedule for the Month of ${monthNames[month]} ${year}`;
+      const titleWidth = doc.getTextWidth(title);
+      const pageWidth = doc.internal.pageSize.getWidth();
+      doc.text(title, (pageWidth - titleWidth) / 2, 20);
+      
+      // Prepare table data
+      const tableData = payrollData.map((staff: any, index: number) => [
+        index + 1,
+        staff.designation || staff.jobTitle || 'Staff',
+        staff.fullName,
+        `₦${Number(staff.netSalary).toLocaleString()}`,
+        staff.accountDetails || 'N/A',
+        staff.loanDeduction && Number(staff.loanDeduction) > 0 
+          ? `Less ₦${Number(staff.loanDeduction).toLocaleString()} for loan repayment` 
+          : ''
+      ]);
+      
+      // Add total row
+      tableData.push(['', '', 'Total:', `₦${Number(totalAmount).toLocaleString()}`, '', '']);
+      
+      // Generate table
+      autoTable(doc, {
+        head: [['SN', 'Designation', 'Name', 'Salary (₦)', 'Account Details', 'Remark']],
+        body: tableData,
+        startY: 35,
+        styles: { fontSize: 9, cellPadding: 3 },
+        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+        columnStyles: {
+          0: { halign: 'center', cellWidth: 20 },
+          1: { cellWidth: 40 },
+          2: { cellWidth: 50 },
+          3: { halign: 'right', cellWidth: 35 },
+          4: { cellWidth: 50 },
+          5: { cellWidth: 50 }
+        },
+        didParseCell: function(data) {
+          if (data.row.index === tableData.length - 1) {
+            data.cell.styles.fillColor = [224, 224, 224];
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+      });
+      
+      // Add footer
+      const finalY = (doc as any).lastAutoTable.finalY + 20;
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      const footerText = `The total amount payable for the month of ${monthNames[month]}, ${year} is ₦${Number(totalAmount).toLocaleString()}`;
+      doc.text(footerText, 20, finalY);
+      
+      doc.setFontSize(9);
+      doc.setTextColor(128, 128, 128);
+      doc.text(`Generated on: ${new Date().toLocaleDateString()} | Total Staff: ${payrollData.length}`, 20, finalY + 10);
+      
+      // Save PDF file
+      const fs = await import('fs');
+      const path = await import('path');
+      
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      
+      const pdfPath = path.join(uploadsDir, `${fileName}.pdf`);
+      const csvPath = path.join(uploadsDir, `${fileName}.csv`);
+      
+      // Save PDF
+      const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
+      fs.writeFileSync(pdfPath, pdfBuffer);
+      
+      // Generate and save CSV
+      let csvContent = `Olowu Palace Salary Schedule for the Month of ${monthNames[month]} ${year}\n\n`;
+      csvContent += 'SN,Designation,Name,Salary (₦),Account Details,Remark\n';
+      
+      payrollData.forEach((staff: any, index: number) => {
+        const remark = staff.loanDeduction && Number(staff.loanDeduction) > 0 
+          ? `Less ₦${Number(staff.loanDeduction).toLocaleString()} for loan repayment` 
+          : '';
+        csvContent += `${index + 1},"${staff.designation || staff.jobTitle || 'Staff'}","${staff.fullName}",${staff.netSalary},"${staff.accountDetails || 'N/A'}","${remark}"\n`;
+      });
+      
+      csvContent += `\nTotal:,,,${Number(totalAmount).toLocaleString()},,\n`;
+      csvContent += `\nThe total amount payable for the month of ${monthNames[month]}, ${year} is ₦${Number(totalAmount).toLocaleString()}\n`;
+      
+      fs.writeFileSync(csvPath, csvContent);
+      
+      // Update payroll schedule with file paths
+      await prisma.payrollSchedule.update({
+        where: { id: payrollSchedule.id },
+        data: {
+          pdfFilePath: `uploads/${fileName}.pdf`,
+          csvFilePath: `uploads/${fileName}.csv`
+        }
+      });
+      
+      console.log('PDF and CSV files generated and stored successfully');
+      
+    } catch (fileError) {
+      console.error('Error generating files:', fileError);
+      // Continue without files - they can be generated on-demand
+    }
+
     res.json({
       success: true,
       data: {

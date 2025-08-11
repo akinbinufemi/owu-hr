@@ -214,91 +214,39 @@ const PayrollManagement: React.FC = () => {
 
   const handleDownloadPDF = async (scheduleId: string, month: number, year: number) => {
     try {
-      console.log('Generating PDF for schedule:', scheduleId);
+      console.log('Downloading PDF for schedule:', scheduleId);
       
-      // Get payroll data from backend
-      const response = await axios.get(`/payroll/schedules/${scheduleId}/data`);
-      const { data } = response.data;
+      // Check if we have auth token
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        alert('Authentication required. Please log in again.');
+        window.location.href = '/login';
+        return;
+      }
       
-      // Import jsPDF dynamically
-      const { default: jsPDF } = await import('jspdf');
-      const { default: autoTable } = await import('jspdf-autotable');
-      
-      // Create PDF
-      const doc = new jsPDF('landscape');
-      
-      // Add title
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      const title = `Olowu Palace Salary Schedule for the Month of ${data.monthName} ${data.year}`;
-      const titleWidth = doc.getTextWidth(title);
-      const pageWidth = doc.internal.pageSize.getWidth();
-      doc.text(title, (pageWidth - titleWidth) / 2, 20);
-      
-      // Prepare table data
-      const tableData = data.staffData.map((staff: any) => [
-        staff.sn,
-        staff.designation,
-        staff.name,
-        `₦${Number(staff.salary).toLocaleString()}`,
-        staff.accountDetails,
-        staff.remark
-      ]);
-      
-      // Add total row
-      tableData.push([
-        '', '', 'Total:', `₦${Number(data.totalAmount).toLocaleString()}`, '', ''
-      ]);
-      
-      // Generate table
-      autoTable(doc, {
-        head: [['SN', 'Designation', 'Name', 'Salary (₦)', 'Account Details', 'Remark']],
-        body: tableData,
-        startY: 35,
-        styles: {
-          fontSize: 9,
-          cellPadding: 3
-        },
-        headStyles: {
-          fillColor: [240, 240, 240],
-          textColor: [0, 0, 0],
-          fontStyle: 'bold'
-        },
-        columnStyles: {
-          0: { halign: 'center', cellWidth: 20 },
-          1: { cellWidth: 40 },
-          2: { cellWidth: 50 },
-          3: { halign: 'right', cellWidth: 35 },
-          4: { cellWidth: 50 },
-          5: { cellWidth: 50 }
-        },
-        didParseCell: function(data) {
-          // Style total row
-          if (data.row.index === tableData.length - 1) {
-            data.cell.styles.fillColor = [224, 224, 224];
-            data.cell.styles.fontStyle = 'bold';
-          }
+      const response = await axios.get(`/payroll/schedules/${scheduleId}/download-pdf`, {
+        responseType: 'blob',
+        headers: {
+          'Authorization': `Bearer ${authToken}`
         }
       });
       
-      // Add footer
-      const finalY = (doc as any).lastAutoTable.finalY + 20;
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'normal');
-      const footerText = `The total amount payable for the month of ${data.monthName}, ${data.year} is ₦${Number(data.totalAmount).toLocaleString()}`;
-      doc.text(footerText, 20, finalY);
+      console.log('PDF response received:', response.status);
       
-      doc.setFontSize(9);
-      doc.setTextColor(128, 128, 128);
-      doc.text(`Generated on: ${new Date().toLocaleDateString()} | Total Staff: ${data.staffData.length}`, 20, finalY + 10);
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `payroll-${getMonthName(month)}-${year}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
       
-      // Download PDF
-      doc.save(`payroll-${data.monthName}-${data.year}.pdf`);
-      console.log('PDF generated and downloaded successfully');
-      
+      console.log('PDF download completed successfully');
     } catch (error: any) {
-      console.error('Failed to generate PDF:', error);
-      alert('Failed to generate PDF. Please try again.');
+      console.error('Failed to download PDF:', error);
+      alert('Failed to download PDF. Please try again.');
     }
   };
 
@@ -310,38 +258,39 @@ const PayrollManagement: React.FC = () => {
 
   const handleDownloadCSV = async (scheduleId: string, month: number, year: number) => {
     try {
-      console.log('Generating CSV for schedule:', scheduleId);
+      console.log('Downloading CSV for schedule:', scheduleId);
       
-      // Get payroll data from backend
-      const response = await axios.get(`/payroll/schedules/${scheduleId}/data`);
-      const { data } = response.data;
+      // Check if we have auth token
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        alert('Authentication required. Please log in again.');
+        window.location.href = '/login';
+        return;
+      }
       
-      // Create CSV content
-      let csvContent = `Olowu Palace Salary Schedule for the Month of ${data.monthName} ${data.year}\n\n`;
-      csvContent += 'SN,Designation,Name,Salary (₦),Account Details,Remark\n';
-      
-      data.staffData.forEach((staff: any) => {
-        csvContent += `${staff.sn},"${staff.designation}","${staff.name}",${staff.salary},"${staff.accountDetails}","${staff.remark}"\n`;
+      const response = await axios.get(`/payroll/schedules/${scheduleId}/download-csv`, {
+        responseType: 'blob',
+        headers: {
+          'Authorization': `Bearer ${authToken}`
+        }
       });
       
-      csvContent += `\nTotal:,,,${Number(data.totalAmount).toLocaleString()},,\n`;
-      csvContent += `\nThe total amount payable for the month of ${data.monthName}, ${data.year} is ₦${Number(data.totalAmount).toLocaleString()}\n`;
+      console.log('CSV response received:', response.status);
       
-      // Download CSV
-      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const blob = new Blob([response.data], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `payroll-${data.monthName}-${data.year}.csv`;
+      link.download = `payroll-${getMonthName(month)}-${year}.csv`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
       
-      console.log('CSV generated and downloaded successfully');
+      console.log('CSV download completed successfully');
     } catch (error: any) {
-      console.error('Failed to generate CSV:', error);
-      alert('Failed to generate CSV. Please try again.');
+      console.error('Failed to download CSV:', error);
+      alert('Failed to download CSV. Please try again.');
     }
   };
 

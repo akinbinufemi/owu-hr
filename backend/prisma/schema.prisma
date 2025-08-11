@@ -241,7 +241,8 @@ model PayrollSchedule {
   totalAmount Decimal @db.Decimal(12, 2)
   generatedBy String
   generatedAt DateTime @default(now())
-  filePath    String?
+  pdfFilePath String?  // PDF file path
+  csvFilePath String?  // CSV file path
 
   @@unique([month, year])
   @@map("payroll_schedules")
