@@ -174,11 +174,37 @@ async function main() {
     console.log(`✅ Loan created: ${loan.reason} - ₦${loan.amount}`);
   }
 
+  // Create sample payroll schedule
+  const payrollData = createdStaff.map((staff, index) => ({
+    employeeId: staff.employeeId,
+    fullName: staff.fullName,
+    basicSalary: staff.basicSalary,
+    grossSalary: staff.basicSalary + (staff.allowances?.housing || 0) + (staff.allowances?.transport || 0) + (staff.allowances?.meal || 0),
+    totalDeductions: Math.floor(staff.basicSalary * 0.1), // 10% tax
+    netSalary: staff.basicSalary + (staff.allowances?.housing || 0) + (staff.allowances?.transport || 0) + (staff.allowances?.meal || 0) - Math.floor(staff.basicSalary * 0.1)
+  }));
+
+  const totalAmount = payrollData.reduce((sum, staff) => sum + staff.netSalary, 0);
+
+  const payrollSchedule = await prisma.payrollSchedule.create({
+    data: {
+      month: 8, // August
+      year: 2025,
+      totalAmount: totalAmount,
+      staffData: JSON.stringify(payrollData),
+      generatedBy: admin.id,
+      status: 'COMPLETED'
+    }
+  });
+
+  console.log(`✅ Payroll schedule created: August 2025 - ₦${totalAmount.toLocaleString()}`);
+
   console.log('🎉 Database seeding completed!');
   console.log('📊 Summary:');
   console.log(`- Admin users: 1`);
   console.log(`- Staff members: ${createdStaff.length}`);
   console.log(`- Loans: ${loans.length}`);
+  console.log(`- Payroll schedules: 1`);
 }
 
 main()
