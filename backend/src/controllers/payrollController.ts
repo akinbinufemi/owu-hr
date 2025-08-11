@@ -4,6 +4,49 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import prisma from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 
+// Helper function to convert numbers to words (simplified version)
+const numberToWords = (num: number): string => {
+  if (num === 0) return 'Zero';
+  
+  const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+  const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+  const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+  
+  const convertHundreds = (n: number): string => {
+    let result = '';
+    if (n >= 100) {
+      result += ones[Math.floor(n / 100)] + ' Hundred ';
+      n %= 100;
+    }
+    if (n >= 20) {
+      result += tens[Math.floor(n / 10)] + ' ';
+      n %= 10;
+    } else if (n >= 10) {
+      result += teens[n - 10] + ' ';
+      return result;
+    }
+    if (n > 0) {
+      result += ones[n] + ' ';
+    }
+    return result;
+  };
+  
+  let result = '';
+  if (num >= 1000000) {
+    result += convertHundreds(Math.floor(num / 1000000)) + 'Million ';
+    num %= 1000000;
+  }
+  if (num >= 1000) {
+    result += convertHundreds(Math.floor(num / 1000)) + 'Thousand ';
+    num %= 1000;
+  }
+  if (num > 0) {
+    result += convertHundreds(num);
+  }
+  
+  return result.trim();
+};
+
 // Validation schemas
 const createSalaryStructureSchema = Joi.object({
   staffId: Joi.string().required(),
@@ -359,8 +402,10 @@ export const generatePayroll = async (req: AuthRequest, res: Response) => {
         staffId: staff.id,
         employeeId: staff.employeeId,
         fullName: staff.fullName,
+        designation: staff.jobTitle || 'Staff',
         jobTitle: staff.jobTitle,
         department: staff.department,
+        accountDetails: staff.accountDetails || 'N/A',
         basicSalary,
         allowances: {
           housing: housingAllowance,
@@ -376,7 +421,8 @@ export const generatePayroll = async (req: AuthRequest, res: Response) => {
           other: otherDeductions
         },
         totalDeductions,
-        netSalary
+        netSalary,
+        loanDeduction // Add this for remark calculation
       };
 
       payrollData.push(staffPayroll);
@@ -588,80 +634,173 @@ export const generatePayrollPDF = async (req: AuthRequest, res: Response) => {
     const { width, height } = page.getSize();
     console.log('Page added, dimensions:', width, 'x', height);
 
-    // Simple header for testing
+    // Professional header matching the template
     const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
                        'July', 'August', 'September', 'October', 'November', 'December'];
     
-    page.drawText('Olowu Palace Salary Schedule', {
-      x: 50,
+    // Center the header text
+    const headerText = `Olowu Palace Salary Schedule for the Month of ${monthNames[payrollSchedule.month]} ${payrollSchedule.year}`;
+    const headerWidth = headerText.length * 8; // Approximate width
+    const centerX = (width - headerWidth) / 2;
+    
+    page.drawText(headerText, {
+      x: Math.max(50, centerX),
       y: height - 50,
-      size: 20,
+      size: 16,
       font: timesRomanBoldFont,
       color: rgb(0, 0, 0)
     });
 
-    page.drawText(`${monthNames[payrollSchedule.month]} ${payrollSchedule.year}`, {
-      x: 50,
-      y: height - 80,
-      size: 16,
-      font: timesRomanFont,
-      color: rgb(0, 0, 0)
+    // Table setup
+    const startY = height - 100;
+    const rowHeight = 25;
+    let currentY = startY;
+    
+    // Table headers matching the template
+    const headers = ['SN', 'Designation', 'Name', 'Salary (₦)', 'Account Details', 'Remark'];
+    const columnWidths = [40, 120, 150, 100, 150, 120];
+    let currentX = 50;
+
+    // Draw header row with borders
+    headers.forEach((header, index) => {
+      // Draw cell border
+      page.drawRectangle({
+        x: currentX,
+        y: currentY - 5,
+        width: columnWidths[index],
+        height: rowHeight,
+        borderColor: rgb(0, 0, 0),
+        borderWidth: 1,
+        color: rgb(0.95, 0.95, 0.95)
+      });
+
+      // Draw header text
+      page.drawText(header, {
+        x: currentX + 5,
+        y: currentY + 8,
+        size: 10,
+        font: timesRomanBoldFont,
+        color: rgb(0, 0, 0)
+      });
+
+      currentX += columnWidths[index];
     });
 
-    // Simple staff list with robust error handling
-    let yPosition = height - 120;
+    currentY -= rowHeight;
     console.log('Processing staff data for PDF, count:', staffData.length);
     
+    // Draw data rows
     staffData.forEach((staff: any, index: number) => {
       try {
-        // Safely extract staff data with fallbacks
+        currentX = 50;
+        
+        // Extract staff data with fallbacks
+        const serialNumber = (index + 1).toString();
+        const designation = staff.designation || staff.position || 'Staff';
         const name = staff.fullName || staff.name || 'Unknown Staff';
-        const salary = staff.netSalary || staff.salary || staff.basicSalary || 0;
-        const text = `${index + 1}. ${name} - ₦${Number(salary).toLocaleString()}`;
+        const netSalary = staff.netSalary || staff.salary || staff.basicSalary || 0;
+        const accountDetails = staff.accountDetails || staff.bankAccount || 'N/A';
         
-        console.log(`Processing staff ${index + 1}: ${name}, salary: ${salary}`);
+        // Calculate remark for loan deductions
+        let remark = '';
+        if (staff.loanDeduction && Number(staff.loanDeduction) > 0) {
+          remark = `Less ₦${Number(staff.loanDeduction).toLocaleString()} for loan repayment`;
+        }
         
-        page.drawText(text, {
-          x: 50,
-          y: yPosition,
-          size: 12,
-          font: timesRomanFont,
-          color: rgb(0, 0, 0)
+        const rowData = [serialNumber, designation, name, Number(netSalary).toLocaleString(), accountDetails, remark];
+        
+        console.log(`Processing staff ${index + 1}: ${name}, net salary: ${netSalary}`);
+        
+        // Draw each cell
+        rowData.forEach((data, colIndex) => {
+          // Draw cell border
+          page.drawRectangle({
+            x: currentX,
+            y: currentY - 5,
+            width: columnWidths[colIndex],
+            height: rowHeight,
+            borderColor: rgb(0, 0, 0),
+            borderWidth: 1
+          });
+
+          // Draw cell text (truncate if too long)
+          let displayText = data;
+          if (displayText.length > 20 && colIndex !== 3) { // Don't truncate salary
+            displayText = displayText.substring(0, 17) + '...';
+          }
+
+          page.drawText(displayText, {
+            x: currentX + 3,
+            y: currentY + 8,
+            size: 9,
+            font: timesRomanFont,
+            color: rgb(0, 0, 0)
+          });
+
+          currentX += columnWidths[colIndex];
         });
-        yPosition -= 20;
+
+        currentY -= rowHeight;
         
         // Add new page if needed
-        if (yPosition < 50) {
+        if (currentY < 100) {
           console.log('Adding new page for more staff');
           const newPage = pdfDoc.addPage([842, 595]);
-          yPosition = height - 50;
+          currentY = height - 100;
         }
       } catch (staffError) {
         console.error(`Error processing staff ${index + 1}:`, staffError);
-        // Continue with next staff member
       }
     });
 
-    // Total with error handling
+    // Total row
+    currentY -= 10;
+    currentX = 50;
+    
     try {
       const totalAmount = Number(payrollSchedule.totalAmount) || 0;
-      console.log('Adding total amount:', totalAmount);
-      page.drawText(`Total: ₦${totalAmount.toLocaleString()}`, {
+      console.log('Adding total row:', totalAmount);
+      
+      const totalRowData = ['', '', 'Total:', totalAmount.toLocaleString(), '', ''];
+      
+      totalRowData.forEach((data, colIndex) => {
+        // Draw cell border (thicker for total row)
+        page.drawRectangle({
+          x: currentX,
+          y: currentY - 5,
+          width: columnWidths[colIndex],
+          height: rowHeight,
+          borderColor: rgb(0, 0, 0),
+          borderWidth: 2,
+          color: rgb(0.9, 0.9, 0.9)
+        });
+
+        if (data) {
+          page.drawText(data, {
+            x: currentX + 3,
+            y: currentY + 8,
+            size: 10,
+            font: timesRomanBoldFont,
+            color: rgb(0, 0, 0)
+          });
+        }
+
+        currentX += columnWidths[colIndex];
+      });
+      
+      // Footer text matching the template
+      const totalAmountText = `The total amount payable for the month of ${monthNames[payrollSchedule.month]}, ${payrollSchedule.year} is ₦${totalAmount.toLocaleString()} (${numberToWords(totalAmount)} Naira Only)`;
+      
+      page.drawText(totalAmountText, {
         x: 50,
-        y: yPosition - 30,
-        size: 14,
-        font: timesRomanBoldFont,
+        y: currentY - 40,
+        size: 11,
+        font: timesRomanFont,
         color: rgb(0, 0, 0)
       });
+      
     } catch (totalError) {
       console.error('Error adding total:', totalError);
-      page.drawText('Total: ₦0', {
-        x: 50,
-        y: yPosition - 30,
-        size: 14,
-        font: timesRomanBoldFont,
-        color: rgb(0, 0, 0)
-      });
     }
 
     // Generate PDF bytes

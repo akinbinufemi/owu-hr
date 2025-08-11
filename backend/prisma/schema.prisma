@@ -67,6 +67,9 @@ model Staff {
   emergencyContactRelationship String?
   emergencyContactPhone        String?
 
+  // Banking Information
+  accountDetails   String?
+
   // System fields
   isExternallyPaid Boolean  @default(false)
   isActive         Boolean  @default(true)

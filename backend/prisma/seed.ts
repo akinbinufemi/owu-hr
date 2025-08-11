@@ -51,6 +51,7 @@ async function main() {
       emergencyContactName: 'Jane Doe',
       emergencyContactRelationship: 'Spouse',
       emergencyContactPhone: '+234-802-345-6789',
+      accountDetails: 'GTBank 0140530101',
       isExternallyPaid: false,
     },
     {
@@ -72,6 +73,7 @@ async function main() {
       emergencyContactName: 'Mary Johnson',
       emergencyContactRelationship: 'Mother',
       emergencyContactPhone: '+234-804-567-8901',
+      accountDetails: 'FCMB 3681820012',
       isExternallyPaid: false,
     },
     {
@@ -93,6 +95,7 @@ async function main() {
       emergencyContactName: 'Lisa Brown',
       emergencyContactRelationship: 'Spouse',
       emergencyContactPhone: '+234-806-789-0123',
+      accountDetails: 'Opay 8101266987',
       isExternallyPaid: false,
     },
     {
@@ -114,6 +117,7 @@ async function main() {
       emergencyContactName: 'Adebayo Adebayo',
       emergencyContactRelationship: 'Father',
       emergencyContactPhone: '+234-808-901-2345',
+      accountDetails: 'Keystone Bank 2635780903',
       isExternallyPaid: true, // External payment example
     },
   ];
