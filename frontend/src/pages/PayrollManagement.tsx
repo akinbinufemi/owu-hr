@@ -44,6 +44,22 @@ const PayrollManagement: React.FC = () => {
     year: new Date().getFullYear()
   });
 
+  // Salary Structure Management State
+  const [showSalaryModal, setShowSalaryModal] = useState(false);
+  const [editingSalary, setEditingSalary] = useState<SalaryStructure | null>(null);
+  const [staffOptions, setStaffOptions] = useState<any[]>([]);
+  const [salaryForm, setSalaryForm] = useState({
+    staffId: '',
+    basicSalary: '',
+    housingAllowance: '',
+    transportAllowance: '',
+    medicalAllowance: '',
+    taxDeduction: '',
+    pensionDeduction: '',
+    loanDeduction: '',
+    effectiveDate: new Date().toISOString().split('T')[0]
+  });
+
   useEffect(() => {
     if (activeTab === 'schedules') {
       fetchPayrollSchedules();
@@ -77,6 +93,105 @@ const PayrollManagement: React.FC = () => {
       console.error('Failed to fetch salary structures:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchStaffOptions = async () => {
+    try {
+      const response = await axios.get('/staff?limit=1000');
+      if (response.data.success) {
+        setStaffOptions(response.data.data.staff);
+      }
+    } catch (error) {
+      console.error('Failed to fetch staff options:', error);
+    }
+  };
+
+  const handleCreateSalaryStructure = () => {
+    setEditingSalary(null);
+    setSalaryForm({
+      staffId: '',
+      basicSalary: '',
+      housingAllowance: '',
+      transportAllowance: '',
+      medicalAllowance: '',
+      taxDeduction: '',
+      pensionDeduction: '',
+      loanDeduction: '',
+      effectiveDate: new Date().toISOString().split('T')[0]
+    });
+    setShowSalaryModal(true);
+    fetchStaffOptions();
+  };
+
+  const handleEditSalaryStructure = (structure: SalaryStructure) => {
+    setEditingSalary(structure);
+    setSalaryForm({
+      staffId: structure.staffId,
+      basicSalary: structure.basicSalary.toString(),
+      housingAllowance: structure.housingAllowance.toString(),
+      transportAllowance: structure.transportAllowance.toString(),
+      medicalAllowance: structure.medicalAllowance.toString(),
+      taxDeduction: structure.taxDeduction.toString(),
+      pensionDeduction: structure.pensionDeduction.toString(),
+      loanDeduction: structure.loanDeduction.toString(),
+      effectiveDate: structure.effectiveDate.split('T')[0]
+    });
+    setShowSalaryModal(true);
+    fetchStaffOptions();
+  };
+
+  const handleSaveSalaryStructure = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      
+      const data = {
+        staffId: salaryForm.staffId,
+        basicSalary: parseFloat(salaryForm.basicSalary),
+        housingAllowance: parseFloat(salaryForm.housingAllowance) || 0,
+        transportAllowance: parseFloat(salaryForm.transportAllowance) || 0,
+        medicalAllowance: parseFloat(salaryForm.medicalAllowance) || 0,
+        taxDeduction: parseFloat(salaryForm.taxDeduction) || 0,
+        pensionDeduction: parseFloat(salaryForm.pensionDeduction) || 0,
+        loanDeduction: parseFloat(salaryForm.loanDeduction) || 0,
+        effectiveDate: new Date(salaryForm.effectiveDate).toISOString()
+      };
+
+      if (editingSalary) {
+        const response = await axios.put(`/payroll/structures/${editingSalary.id}`, data);
+        if (response.data.success) {
+          alert('Salary structure updated successfully!');
+        }
+      } else {
+        const response = await axios.post('/payroll/structures', data);
+        if (response.data.success) {
+          alert('Salary structure created successfully!');
+        }
+      }
+      
+      setShowSalaryModal(false);
+      fetchSalaryStructures();
+    } catch (error: any) {
+      const message = error.response?.data?.error?.message || 'Failed to save salary structure';
+      alert(`Error: ${message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteSalaryStructure = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this salary structure?')) return;
+    
+    try {
+      const response = await axios.delete(`/payroll/structures/${id}`);
+      if (response.data.success) {
+        alert('Salary structure deleted successfully!');
+        fetchSalaryStructures();
+      }
+    } catch (error: any) {
+      const message = error.response?.data?.error?.message || 'Failed to delete salary structure';
+      alert(`Error: ${message}`);
     }
   };
 
@@ -320,13 +435,33 @@ const PayrollManagement: React.FC = () => {
 
         {activeTab === 'structures' && (
           <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)', overflow: 'hidden' }}>
-            <div style={{ padding: '1rem', borderBottom: '1px solid #f3f4f6' }}>
-              <h2 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827' }}>
-                Salary Structures
-              </h2>
-              <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                View and manage employee salary structures
-              </p>
+            <div style={{ padding: '1rem', borderBottom: '1px solid #f3f4f6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h2 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827' }}>
+                  Salary Structures
+                </h2>
+                <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                  View and manage employee salary structures
+                </p>
+              </div>
+              <button
+                onClick={handleCreateSalaryStructure}
+                style={{
+                  backgroundColor: '#0ea5e9',
+                  color: 'white',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.875rem',
+                  fontWeight: '500',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}
+              >
+                ➕ Add Salary Structure
+              </button>
             </div>
 
             {loading ? (
@@ -354,12 +489,15 @@ const PayrollManagement: React.FC = () => {
                       <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>
                         Status
                       </th>
+                      <th style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '500', color: '#6b7280', textTransform: 'uppercase' }}>
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {salaryStructures.length === 0 ? (
                       <tr>
-                        <td colSpan={5} style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+                        <td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
                           No salary structures found
                         </td>
                       </tr>
@@ -417,6 +555,38 @@ const PayrollManagement: React.FC = () => {
                               >
                                 {structure.isActive ? 'Active' : 'Inactive'}
                               </span>
+                            </td>
+                            <td style={{ padding: '1rem 0.75rem' }}>
+                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button
+                                  onClick={() => handleEditSalaryStructure(structure)}
+                                  style={{
+                                    padding: '0.25rem 0.5rem',
+                                    backgroundColor: '#0ea5e9',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '0.25rem',
+                                    fontSize: '0.75rem',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  ✏️ Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteSalaryStructure(structure.id)}
+                                  style={{
+                                    padding: '0.25rem 0.5rem',
+                                    backgroundColor: '#dc2626',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '0.25rem',
+                                    fontSize: '0.75rem',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  🗑️ Delete
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -526,6 +696,180 @@ const PayrollManagement: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* Salary Structure Modal */}
+      {showSalaryModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', width: '90%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827' }}>
+                {editingSalary ? 'Edit Salary Structure' : 'Add Salary Structure'}
+              </h3>
+              <button
+                onClick={() => setShowSalaryModal(false)}
+                style={{ fontSize: '1.5rem', color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveSalaryStructure}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.25rem' }}>
+                    Employee *
+                  </label>
+                  <select
+                    value={salaryForm.staffId}
+                    onChange={(e) => setSalaryForm(prev => ({ ...prev, staffId: e.target.value }))}
+                    required
+                    disabled={!!editingSalary}
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+                  >
+                    <option value="">Select Employee</option>
+                    {staffOptions.map(staff => (
+                      <option key={staff.id} value={staff.id}>
+                        {staff.fullName} ({staff.employeeId})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.25rem' }}>
+                    Basic Salary *
+                  </label>
+                  <input
+                    type="number"
+                    value={salaryForm.basicSalary}
+                    onChange={(e) => setSalaryForm(prev => ({ ...prev, basicSalary: e.target.value }))}
+                    required
+                    min="0"
+                    step="0.01"
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.25rem' }}>
+                    Housing Allowance
+                  </label>
+                  <input
+                    type="number"
+                    value={salaryForm.housingAllowance}
+                    onChange={(e) => setSalaryForm(prev => ({ ...prev, housingAllowance: e.target.value }))}
+                    min="0"
+                    step="0.01"
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.25rem' }}>
+                    Transport Allowance
+                  </label>
+                  <input
+                    type="number"
+                    value={salaryForm.transportAllowance}
+                    onChange={(e) => setSalaryForm(prev => ({ ...prev, transportAllowance: e.target.value }))}
+                    min="0"
+                    step="0.01"
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.25rem' }}>
+                    Medical Allowance
+                  </label>
+                  <input
+                    type="number"
+                    value={salaryForm.medicalAllowance}
+                    onChange={(e) => setSalaryForm(prev => ({ ...prev, medicalAllowance: e.target.value }))}
+                    min="0"
+                    step="0.01"
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.25rem' }}>
+                    Tax Deduction
+                  </label>
+                  <input
+                    type="number"
+                    value={salaryForm.taxDeduction}
+                    onChange={(e) => setSalaryForm(prev => ({ ...prev, taxDeduction: e.target.value }))}
+                    min="0"
+                    step="0.01"
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.25rem' }}>
+                    Pension Deduction
+                  </label>
+                  <input
+                    type="number"
+                    value={salaryForm.pensionDeduction}
+                    onChange={(e) => setSalaryForm(prev => ({ ...prev, pensionDeduction: e.target.value }))}
+                    min="0"
+                    step="0.01"
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.25rem' }}>
+                    Effective Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={salaryForm.effectiveDate}
+                    onChange={(e) => setSalaryForm(prev => ({ ...prev, effectiveDate: e.target.value }))}
+                    required
+                    style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '0.375rem', fontSize: '0.875rem' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowSalaryModal(false)}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    backgroundColor: '#6b7280',
+                    color: 'white',
+                    borderRadius: '0.375rem',
+                    fontSize: '0.875rem',
+                    border: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    backgroundColor: loading ? '#9ca3af' : '#0ea5e9',
+                    color: 'white',
+                    borderRadius: '0.375rem',
+                    fontSize: '0.875rem',
+                    border: 'none',
+                    cursor: loading ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {loading ? 'Saving...' : (editingSalary ? 'Update' : 'Create')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
