@@ -214,9 +214,14 @@ const PayrollManagement: React.FC = () => {
 
   const handleDownloadPDF = async (scheduleId: string, month: number, year: number) => {
     try {
+      console.log('Attempting to download PDF for schedule:', scheduleId);
+      console.log('API URL:', axios.defaults.baseURL);
+      
       const response = await axios.get(`/payroll/schedules/${scheduleId}/pdf`, {
         responseType: 'blob'
       });
+      
+      console.log('PDF response received:', response.status, response.headers);
       
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
@@ -227,9 +232,31 @@ const PayrollManagement: React.FC = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-    } catch (error) {
+      
+      console.log('PDF download completed successfully');
+    } catch (error: any) {
       console.error('Failed to download PDF:', error);
-      alert('Failed to download PDF');
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      console.error('Error headers:', error.response?.headers);
+      
+      let errorMessage = 'Failed to download PDF';
+      if (error.response?.data) {
+        // If the error response is JSON
+        if (error.response.data instanceof Blob) {
+          const text = await error.response.data.text();
+          try {
+            const errorData = JSON.parse(text);
+            errorMessage = errorData.error?.message || errorMessage;
+          } catch (e) {
+            errorMessage = text || errorMessage;
+          }
+        } else if (typeof error.response.data === 'object') {
+          errorMessage = error.response.data.error?.message || errorMessage;
+        }
+      }
+      
+      alert(`Error: ${errorMessage}`);
     }
   };
 
@@ -377,6 +404,38 @@ const PayrollManagement: React.FC = () => {
               <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
                 View and download generated payroll schedules
               </p>
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await axios.get('/payroll/test-pdf', { responseType: 'blob' });
+                    const blob = new Blob([response.data], { type: 'application/pdf' });
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = 'test.pdf';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(url);
+                    alert('Test PDF downloaded successfully!');
+                  } catch (error) {
+                    console.error('Test PDF failed:', error);
+                    alert('Test PDF failed');
+                  }
+                }}
+                style={{
+                  marginTop: '0.5rem',
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#f59e0b',
+                  color: 'white',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.875rem',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                🧪 Test PDF Generation
+              </button>
             </div>
 
             {loading ? (
