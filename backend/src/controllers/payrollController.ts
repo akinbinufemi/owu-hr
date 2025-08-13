@@ -960,19 +960,31 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
           position: fixed;
           top: 20px;
           right: 20px;
-          background-color: #007bff;
+          background: linear-gradient(135deg, #007bff, #0056b3);
           color: white;
           border: none;
-          padding: 10px 20px;
-          border-radius: 5px;
+          padding: 12px 24px;
+          border-radius: 8px;
           cursor: pointer;
-          font-size: 14px;
-          box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+          font-size: 16px;
+          font-weight: 600;
+          box-shadow: 0 4px 12px rgba(0,123,255,0.3);
           z-index: 1000;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
         
         .print-button:hover {
-          background-color: #0056b3;
+          background: linear-gradient(135deg, #0056b3, #004085);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(0,123,255,0.4);
+        }
+        
+        .print-button:active {
+          transform: translateY(0);
+          box-shadow: 0 2px 8px rgba(0,123,255,0.3);
         }
         
         @media print {
@@ -1014,7 +1026,25 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
       </style>
     </head>
     <body>
-      <button class="print-button" onclick="window.print()">Print / Save as PDF</button>
+      <button class="print-button" onclick="handlePrint()">🖨️ Print / Save as PDF</button>
+      
+      <script>
+        function handlePrint() {
+          // Ensure the page is fully loaded before printing
+          if (document.readyState === 'complete') {
+            window.print();
+          } else {
+            window.addEventListener('load', function() {
+              window.print();
+            });
+          }
+        }
+        
+        // Auto-focus the print button for better UX
+        window.addEventListener('load', function() {
+          document.querySelector('.print-button').focus();
+        });
+      </script>
       
       <div class="header">
         <h1>Olowu Palace Salary Schedule for the Month of ${monthNames[payrollSchedule.month]} ${payrollSchedule.year}</h1>

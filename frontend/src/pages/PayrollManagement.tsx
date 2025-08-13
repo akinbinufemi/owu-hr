@@ -458,69 +458,7 @@ const PayrollManagement: React.FC = () => {
               <p style={{ fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
                 View and download generated payroll schedules
               </p>
-              <button
-                onClick={async () => {
-                  try {
-                    const authToken = localStorage.getItem('authToken');
-                    if (!authToken) {
-                      alert('Authentication required. Please log in again.');
-                      return;
-                    }
-                    
-                    const response = await axios.get('/payroll/test-pdf', { 
-                      responseType: 'blob',
-                      headers: {
-                        'Authorization': `Bearer ${authToken}`
-                      }
-                    });
-                    const blob = new Blob([response.data], { type: 'application/pdf' });
-                    const url = window.URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = 'test.pdf';
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    window.URL.revokeObjectURL(url);
-                    alert('Test PDF downloaded successfully!');
-                  } catch (error) {
-                    console.error('Test PDF failed:', error);
-                    alert('Test PDF failed');
-                  }
-                }}
-                style={{
-                  marginTop: '0.5rem',
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#f59e0b',
-                  color: 'white',
-                  borderRadius: '0.375rem',
-                  fontSize: '0.875rem',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                🧪 Test PDF Generation
-              </button>
-              <button
-                onClick={() => {
-                  const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
-                  alert(`Current API URL: ${apiBaseUrl}`);
-                  console.log('API Base URL:', apiBaseUrl);
-                  console.log('All environment variables:', process.env);
-                }}
-                style={{
-                  marginLeft: '0.5rem',
-                  padding: '0.5rem 1rem',
-                  backgroundColor: '#6366f1',
-                  color: 'white',
-                  borderRadius: '0.375rem',
-                  fontSize: '0.875rem',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                🔍 Check API URL
-              </button>
+
             </div>
 
             {loading ? (
@@ -571,97 +509,20 @@ const PayrollManagement: React.FC = () => {
                               <button
                                 onClick={() => handleViewHTML(schedule.id, schedule.month, schedule.year)}
                                 style={{
-                                  padding: '0.25rem 0.75rem',
+                                  padding: '0.5rem 1rem',
                                   backgroundColor: '#8b5cf6',
                                   color: 'white',
                                   borderRadius: '0.375rem',
-                                  fontSize: '0.75rem',
+                                  fontSize: '0.875rem',
                                   fontWeight: '500',
                                   border: 'none',
                                   cursor: 'pointer',
                                   display: 'flex',
                                   alignItems: 'center',
-                                  gap: '0.25rem'
+                                  gap: '0.5rem'
                                 }}
                               >
-                                🌐 View
-                              </button>
-                              <button
-                                onClick={() => {
-                                  // Get the API base URL from environment or use default
-                                  const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
-                                  const url = `${apiBaseUrl}/payroll/schedules/${schedule.id}/html-debug`;
-                                  window.open(url, '_blank');
-                                }}
-                                style={{
-                                  padding: '0.25rem 0.75rem',
-                                  backgroundColor: '#f59e0b',
-                                  color: 'white',
-                                  borderRadius: '0.375rem',
-                                  fontSize: '0.75rem',
-                                  fontWeight: '500',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '0.25rem'
-                                }}
-                              >
-                                🔧 Debug
-                              </button>
-                              <button
-                                onClick={() => handleDownloadPDF(schedule.id, schedule.month, schedule.year)}
-                                style={{
-                                  padding: '0.25rem 0.75rem',
-                                  backgroundColor: '#10b981',
-                                  color: 'white',
-                                  borderRadius: '0.375rem',
-                                  fontSize: '0.75rem',
-                                  fontWeight: '500',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '0.25rem'
-                                }}
-                              >
-                                📄 PDF
-                              </button>
-                              <button
-                                onClick={() => handleDownloadCSV(schedule.id, schedule.month, schedule.year)}
-                                style={{
-                                  padding: '0.25rem 0.75rem',
-                                  backgroundColor: '#0ea5e9',
-                                  color: 'white',
-                                  borderRadius: '0.375rem',
-                                  fontSize: '0.75rem',
-                                  fontWeight: '500',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '0.25rem'
-                                }}
-                              >
-                                📊 CSV
-                              </button>
-                              <button
-                                onClick={() => handleDeletePayrollSchedule(schedule.id, schedule.month, schedule.year)}
-                                style={{
-                                  padding: '0.25rem 0.75rem',
-                                  backgroundColor: '#dc2626',
-                                  color: 'white',
-                                  borderRadius: '0.375rem',
-                                  fontSize: '0.75rem',
-                                  fontWeight: '500',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '0.25rem'
-                                }}
-                              >
-                                🗑️ Delete
+                                🌐 View Payroll Schedule
                               </button>
                             </div>
                           </td>

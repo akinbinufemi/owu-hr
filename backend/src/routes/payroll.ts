@@ -115,21 +115,13 @@ router.get('/schedules/:id/csv', async (req, res) => {
 // HTML view route (handles auth internally via query token)
 router.get('/schedules/:id/html', viewPayrollHTML);
 
-// Simple test endpoint (no auth)
-router.get('/test-connection', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Payroll API is working!',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
+
 
 // Debug HTML route (no auth for testing)
 router.get('/schedules/:id/html-debug', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const payrollSchedule = await prisma.payrollSchedule.findUnique({
       where: { id }
     });
@@ -148,8 +140,8 @@ router.get('/schedules/:id/html-debug', async (req, res) => {
 
     // Simple HTML response for debugging
     const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
-                       'July', 'August', 'September', 'October', 'November', 'December'];
-    
+      'July', 'August', 'September', 'October', 'November', 'December'];
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -287,33 +279,7 @@ router.get('/schedules/:id/download-csv', async (req, res) => {
   }
 });
 
-// Test PDF endpoint
-router.get('/test-pdf', async (req, res) => {
-  try {
-    const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
 
-    const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([595, 842]);
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-
-    page.drawText('Test PDF Generation', {
-      x: 50,
-      y: 750,
-      size: 20,
-      font,
-      color: rgb(0, 0, 0),
-    });
-
-    const pdfBytes = await pdfDoc.save();
-
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename="test.pdf"');
-    res.send(Buffer.from(pdfBytes));
-  } catch (error) {
-    console.error('Test PDF error:', error);
-    res.status(500).json({ error: 'Failed to generate test PDF' });
-  }
-});
 
 
 
