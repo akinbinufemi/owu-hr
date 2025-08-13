@@ -509,20 +509,38 @@ const PayrollManagement: React.FC = () => {
                               <button
                                 onClick={() => handleViewHTML(schedule.id, schedule.month, schedule.year)}
                                 style={{
-                                  padding: '0.5rem 1rem',
+                                  padding: '0.25rem 0.75rem',
                                   backgroundColor: '#8b5cf6',
                                   color: 'white',
                                   borderRadius: '0.375rem',
-                                  fontSize: '0.875rem',
+                                  fontSize: '0.75rem',
                                   fontWeight: '500',
                                   border: 'none',
                                   cursor: 'pointer',
                                   display: 'flex',
                                   alignItems: 'center',
-                                  gap: '0.5rem'
+                                  gap: '0.25rem'
                                 }}
                               >
-                                🌐 View Payroll Schedule
+                                🌐 View
+                              </button>
+                              <button
+                                onClick={() => handleDeletePayrollSchedule(schedule.id, schedule.month, schedule.year)}
+                                style={{
+                                  padding: '0.25rem 0.75rem',
+                                  backgroundColor: '#dc2626',
+                                  color: 'white',
+                                  borderRadius: '0.375rem',
+                                  fontSize: '0.75rem',
+                                  fontWeight: '500',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem'
+                                }}
+                              >
+                                🗑️ Delete
                               </button>
                             </div>
                           </td>

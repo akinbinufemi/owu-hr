@@ -854,6 +854,34 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
           border-collapse: collapse;
           margin-bottom: 20px;
           box-shadow: 0 0 10px rgba(0,0,0,0.1);
+          overflow-x: auto;
+          display: block;
+          white-space: nowrap;
+        }
+        
+        .payroll-table thead,
+        .payroll-table tbody,
+        .payroll-table tr {
+          display: table;
+          width: 100%;
+          table-layout: fixed;
+        }
+        
+        @media (max-width: 768px) {
+          .payroll-table {
+            font-size: 10px;
+            display: block;
+            overflow-x: auto;
+            white-space: nowrap;
+          }
+          
+          .payroll-table thead,
+          .payroll-table tbody,
+          .payroll-table tr {
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+          }
         }
         
         .payroll-table th,
@@ -958,33 +986,115 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
         
         .print-button {
           position: fixed;
-          top: 20px;
+          bottom: 20px;
           right: 20px;
           background: linear-gradient(135deg, #007bff, #0056b3);
           color: white;
           border: none;
-          padding: 12px 24px;
-          border-radius: 8px;
+          padding: 12px 20px;
+          border-radius: 50px;
           cursor: pointer;
-          font-size: 16px;
+          font-size: 14px;
           font-weight: 600;
-          box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+          box-shadow: 0 4px 20px rgba(0,123,255,0.3);
           z-index: 1000;
           transition: all 0.3s ease;
           display: flex;
           align-items: center;
           gap: 8px;
+          white-space: nowrap;
         }
         
         .print-button:hover {
           background: linear-gradient(135deg, #0056b3, #004085);
           transform: translateY(-2px);
-          box-shadow: 0 6px 16px rgba(0,123,255,0.4);
+          box-shadow: 0 6px 25px rgba(0,123,255,0.4);
         }
         
         .print-button:active {
           transform: translateY(0);
-          box-shadow: 0 2px 8px rgba(0,123,255,0.3);
+          box-shadow: 0 2px 10px rgba(0,123,255,0.3);
+        }
+        
+        /* Mobile-first responsive design */
+        @media (max-width: 768px) {
+          .print-button {
+            bottom: 15px;
+            right: 15px;
+            padding: 10px 16px;
+            font-size: 12px;
+            border-radius: 40px;
+          }
+          
+          body {
+            padding: 10px;
+            font-size: 11px;
+          }
+          
+          .header {
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+          }
+          
+          .header h1 {
+            font-size: 14px;
+            line-height: 1.3;
+          }
+          
+          .payroll-table th,
+          .payroll-table td {
+            padding: 6px 4px;
+            font-size: 10px;
+          }
+          
+          .payroll-table th {
+            font-size: 9px;
+          }
+          
+          .amount-words {
+            font-size: 11px;
+            padding: 8px;
+            margin-bottom: 15px;
+          }
+          
+          .external-note {
+            font-size: 10px;
+            padding: 8px;
+            margin-top: 10px;
+          }
+          
+          .generation-info {
+            font-size: 9px;
+            padding: 6px;
+            margin-top: 15px;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          .print-button {
+            bottom: 10px;
+            right: 10px;
+            padding: 8px 12px;
+            font-size: 11px;
+          }
+          
+          body {
+            padding: 8px;
+          }
+          
+          .header h1 {
+            font-size: 12px;
+          }
+          
+          .payroll-table th,
+          .payroll-table td {
+            padding: 4px 2px;
+            font-size: 9px;
+          }
+          
+          .payroll-table th {
+            font-size: 8px;
+          }
         }
         
         @media print {
@@ -1026,25 +1136,7 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
       </style>
     </head>
     <body>
-      <button class="print-button" onclick="handlePrint()">🖨️ Print / Save as PDF</button>
-      
-      <script>
-        function handlePrint() {
-          // Ensure the page is fully loaded before printing
-          if (document.readyState === 'complete') {
-            window.print();
-          } else {
-            window.addEventListener('load', function() {
-              window.print();
-            });
-          }
-        }
-        
-        // Auto-focus the print button for better UX
-        window.addEventListener('load', function() {
-          document.querySelector('.print-button').focus();
-        });
-      </script>
+      <button class="print-button" id="printButton">🖨️ Print / Save as PDF</button>
       
       <div class="header">
         <h1>Olowu Palace Salary Schedule for the Month of ${monthNames[payrollSchedule.month]} ${payrollSchedule.year}</h1>
@@ -1116,6 +1208,24 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
           Generated on: ${new Date().toLocaleDateString('en-GB')} | Total Staff: ${internalStaff.length} (Internal)${externalStaff.length > 0 ? ` + ${externalStaff.length} (External)` : ''}
         </div>
       </div>
+      
+      <script>
+        document.addEventListener('DOMContentLoaded', function() {
+          const printButton = document.getElementById('printButton');
+          if (printButton) {
+            printButton.addEventListener('click', function() {
+              // Ensure the page is fully loaded before printing
+              if (document.readyState === 'complete') {
+                window.print();
+              } else {
+                window.addEventListener('load', function() {
+                  window.print();
+                });
+              }
+            });
+          }
+        });
+      </script>
     </body>
     </html>
   `;
