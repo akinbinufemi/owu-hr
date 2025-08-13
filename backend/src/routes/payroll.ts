@@ -115,6 +115,16 @@ router.get('/schedules/:id/csv', async (req, res) => {
 // HTML view route (handles auth internally via query token)
 router.get('/schedules/:id/html', viewPayrollHTML);
 
+// Simple test endpoint (no auth)
+router.get('/test-connection', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Payroll API is working!',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
 // Debug HTML route (no auth for testing)
 router.get('/schedules/:id/html-debug', async (req, res) => {
   try {

@@ -268,8 +268,11 @@ const PayrollManagement: React.FC = () => {
         return;
       }
       
-      // Open the HTML view in a new tab
-      const url = `/api/payroll/schedules/${scheduleId}/html?token=${authToken}`;
+      // Get the API base URL from environment or use default
+      const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+      
+      // Open the HTML view in a new tab using the full backend URL
+      const url = `${apiBaseUrl}/payroll/schedules/${scheduleId}/html?token=${authToken}`;
       window.open(url, '_blank');
       
       console.log('HTML view opened successfully');
@@ -498,6 +501,26 @@ const PayrollManagement: React.FC = () => {
               >
                 🧪 Test PDF Generation
               </button>
+              <button
+                onClick={() => {
+                  const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+                  alert(`Current API URL: ${apiBaseUrl}`);
+                  console.log('API Base URL:', apiBaseUrl);
+                  console.log('All environment variables:', process.env);
+                }}
+                style={{
+                  marginLeft: '0.5rem',
+                  padding: '0.5rem 1rem',
+                  backgroundColor: '#6366f1',
+                  color: 'white',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.875rem',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                🔍 Check API URL
+              </button>
             </div>
 
             {loading ? (
@@ -565,7 +588,9 @@ const PayrollManagement: React.FC = () => {
                               </button>
                               <button
                                 onClick={() => {
-                                  const url = `/api/payroll/schedules/${schedule.id}/html-debug`;
+                                  // Get the API base URL from environment or use default
+                                  const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+                                  const url = `${apiBaseUrl}/payroll/schedules/${schedule.id}/html-debug`;
                                   window.open(url, '_blank');
                                 }}
                                 style={{
