@@ -1191,35 +1191,54 @@ export const viewPayrollHTML = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { token } = req.query;
 
+    console.log('ViewPayrollHTML called for ID:', id, 'with token:', token ? 'provided' : 'not provided');
+
     // Verify token if provided
     if (token) {
       const jwt = await import('jsonwebtoken');
       const jwtSecret = process.env.JWT_SECRET;
       
       if (!jwtSecret) {
+        console.error('JWT secret not configured');
         return res.status(500).send('<h1>Server Configuration Error</h1><p>JWT secret not configured</p>');
       }
 
       try {
         jwt.verify(token as string, jwtSecret);
+        console.log('Token verified successfully');
       } catch (error) {
+        console.error('Token verification failed:', error);
         return res.status(401).send('<h1>Unauthorized</h1><p>Invalid or expired token</p>');
       }
+    } else {
+      console.log('No token provided, proceeding without authentication');
     }
 
+    console.log('Fetching payroll schedule from database...');
     const payrollSchedule = await prisma.payrollSchedule.findUnique({
       where: { id }
     });
 
     if (!payrollSchedule) {
+      console.log('Payroll schedule not found for ID:', id);
       return res.status(404).send('<h1>Not Found</h1><p>Payroll schedule not found</p>');
     }
 
+    console.log('Payroll schedule found, parsing staff data...');
     // Parse staff data
-    const staffData = JSON.parse(payrollSchedule.staffData as string);
+    let staffData;
+    try {
+      staffData = JSON.parse(payrollSchedule.staffData as string);
+      console.log('Staff data parsed successfully, count:', staffData.length);
+    } catch (parseError) {
+      console.error('Error parsing staff data:', parseError);
+      return res.status(500).send(`<h1>Data Parse Error</h1><p>Error parsing staff data: ${parseError instanceof Error ? parseError.message : 'Unknown error'}</p>`);
+    }
 
+    console.log('Generating HTML content...');
     // Generate HTML content
     const htmlContent = generatePayrollHTML(payrollSchedule, staffData);
+    console.log('HTML content generated, length:', htmlContent.length);
 
     // Set content type to HTML
     res.setHeader('Content-Type', 'text/html');
@@ -1227,7 +1246,8 @@ export const viewPayrollHTML = async (req: Request, res: Response) => {
 
   } catch (error) {
     console.error('Generate payroll HTML error:', error);
-    res.status(500).send('<h1>Server Error</h1><p>Failed to generate payroll HTML</p>');
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).send(`<h1>Server Error</h1><p>Failed to generate payroll HTML: ${errorMessage}</p><pre>${error instanceof Error ? error.stack : 'No stack trace'}</pre>`);
   }
 };
 

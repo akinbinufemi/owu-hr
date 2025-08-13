@@ -564,6 +564,27 @@ const PayrollManagement: React.FC = () => {
                                 🌐 View
                               </button>
                               <button
+                                onClick={() => {
+                                  const url = `/api/payroll/schedules/${schedule.id}/html-debug`;
+                                  window.open(url, '_blank');
+                                }}
+                                style={{
+                                  padding: '0.25rem 0.75rem',
+                                  backgroundColor: '#f59e0b',
+                                  color: 'white',
+                                  borderRadius: '0.375rem',
+                                  fontSize: '0.75rem',
+                                  fontWeight: '500',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem'
+                                }}
+                              >
+                                🔧 Debug
+                              </button>
+                              <button
                                 onClick={() => handleDownloadPDF(schedule.id, schedule.month, schedule.year)}
                                 style={{
                                   padding: '0.25rem 0.75rem',

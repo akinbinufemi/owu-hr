@@ -112,6 +112,89 @@ router.get('/schedules/:id/csv', async (req, res) => {
   }
 });
 
+// HTML view route (handles auth internally via query token)
+router.get('/schedules/:id/html', viewPayrollHTML);
+
+// Debug HTML route (no auth for testing)
+router.get('/schedules/:id/html-debug', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const payrollSchedule = await prisma.payrollSchedule.findUnique({
+      where: { id }
+    });
+
+    if (!payrollSchedule) {
+      return res.status(404).send('<h1>Not Found</h1><p>Payroll schedule not found</p>');
+    }
+
+    // Parse staff data
+    let staffData;
+    try {
+      staffData = JSON.parse(payrollSchedule.staffData as string);
+    } catch (parseError) {
+      return res.status(500).send(`<h1>Data Parse Error</h1><p>Error parsing staff data: ${parseError instanceof Error ? parseError.message : 'Unknown error'}</p>`);
+    }
+
+    // Simple HTML response for debugging
+    const monthNames = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                       'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Debug - Payroll ${monthNames[payrollSchedule.month]} ${payrollSchedule.year}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          table { border-collapse: collapse; width: 100%; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; }
+        </style>
+      </head>
+      <body>
+        <h1>Payroll Schedule Debug - ${monthNames[payrollSchedule.month]} ${payrollSchedule.year}</h1>
+        <p><strong>Total Amount:</strong> ₦${Number(payrollSchedule.totalAmount).toLocaleString()}</p>
+        <p><strong>Staff Count:</strong> ${staffData.length}</p>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>SN</th>
+              <th>Name</th>
+              <th>Job Title</th>
+              <th>Net Salary</th>
+              <th>External</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${staffData.map((staff: any, index: number) => `
+              <tr>
+                <td>${index + 1}</td>
+                <td>${staff.fullName || 'N/A'}</td>
+                <td>${staff.jobTitle || 'N/A'}</td>
+                <td>₦${Number(staff.netSalary || 0).toLocaleString()}</td>
+                <td>${staff.isExternallyPaid ? 'Yes' : 'No'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        
+        <h3>Raw Data Sample:</h3>
+        <pre>${JSON.stringify(staffData.slice(0, 2), null, 2)}</pre>
+      </body>
+      </html>
+    `;
+
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+
+  } catch (error) {
+    console.error('Debug HTML error:', error);
+    res.status(500).send(`<h1>Server Error</h1><p>Error: ${error instanceof Error ? error.message : 'Unknown error'}</p>`);
+  }
+});
+
 // All other payroll routes require authentication
 router.use(authenticateToken);
 
@@ -124,7 +207,6 @@ router.put('/structures/:id', updateSalaryStructure);
 router.post('/generate', generatePayroll);
 router.get('/schedules', getPayrollSchedules);
 router.get('/schedules/:id', getPayrollSchedule);
-router.get('/schedules/:id/html', viewPayrollHTML);
 router.get('/schedules/:id/pdf', generatePayrollPDF);
 router.delete('/schedules/:id', deletePayrollSchedule);
 
