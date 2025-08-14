@@ -84,6 +84,7 @@ const StaffProfile: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'overview' | 'salary' | 'loans' | 'issues' | 'documents'>('overview');
     const [showEditModal, setShowEditModal] = useState(false);
+    const [showUploadModal, setShowUploadModal] = useState(false);
 
     // Permission checks
     const hasPermission = (permission: string): boolean => {
@@ -143,6 +144,44 @@ const StaffProfile: React.FC = () => {
             month: 'long',
             day: 'numeric'
         });
+    };
+
+    const handleDownloadDocument = async (documentId: string, fileName: string) => {
+        try {
+            const response = await axios.get(`/files/${documentId}`, {
+                responseType: 'blob'
+            });
+            
+            const blob = new Blob([response.data]);
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Failed to download document:', error);
+            alert('Failed to download document');
+        }
+    };
+
+    const handleDeleteDocument = async (documentId: string, fileName: string) => {
+        if (!window.confirm(`Are you sure you want to delete "${fileName}"?`)) {
+            return;
+        }
+
+        try {
+            const response = await axios.delete(`/files/${documentId}`);
+            if (response.data.success) {
+                alert('Document deleted successfully!');
+                fetchStaffData(); // Refresh to update documents list
+            }
+        } catch (error: any) {
+            console.error('Failed to delete document:', error);
+            alert('Failed to delete document: ' + (error.response?.data?.error?.message || error.message));
+        }
     };
 
     const getStatusColor = (status: string) => {
@@ -228,9 +267,12 @@ const StaffProfile: React.FC = () => {
         const [editLoading, setEditLoading] = useState(false);
         const [editError, setEditError] = useState('');
         const [managers, setManagers] = useState<any[]>([]);
+        const [positions, setPositions] = useState<any[]>([]);
+        const [departments, setDepartments] = useState<any[]>([]);
 
         useEffect(() => {
             fetchManagersForEdit();
+            fetchCategoriesForEdit();
         }, []);
 
         const fetchManagersForEdit = async () => {
@@ -241,6 +283,19 @@ const StaffProfile: React.FC = () => {
                 }
             } catch (error) {
                 console.error('Failed to fetch managers:', error);
+            }
+        };
+
+        const fetchCategoriesForEdit = async () => {
+            try {
+                const response = await axios.get('/admin/categories');
+                if (response.data.success) {
+                    const categories = response.data.data;
+                    setPositions(categories.filter((cat: any) => cat.type === 'POSITION'));
+                    setDepartments(categories.filter((cat: any) => cat.type === 'DEPARTMENT'));
+                }
+            } catch (error) {
+                console.error('Failed to fetch categories:', error);
             }
         };
 
@@ -513,28 +568,40 @@ const StaffProfile: React.FC = () => {
 
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Job Title
+                                            Position/Job Title
                                         </label>
-                                        <input
-                                            type="text"
+                                        <select
                                             name="jobTitle"
                                             value={editFormData.jobTitle}
                                             onChange={handleEditInputChange}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
-                                        />
+                                        >
+                                            <option value="">Select Position</option>
+                                            {positions.map(position => (
+                                                <option key={position.id} value={position.name}>
+                                                    {position.name}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
 
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
                                             Department
                                         </label>
-                                        <input
-                                            type="text"
+                                        <select
                                             name="department"
                                             value={editFormData.department}
                                             onChange={handleEditInputChange}
                                             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
-                                        />
+                                        >
+                                            <option value="">Select Department</option>
+                                            {departments.map(department => (
+                                                <option key={department.id} value={department.name}>
+                                                    {department.name}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
 
                                     <div>
@@ -698,6 +765,162 @@ const StaffProfile: React.FC = () => {
                                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                                 )}
                                 {editLoading ? 'Updating...' : 'Update Staff Member'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        );
+    };
+
+    // Document Upload Modal Component
+    const DocumentUploadModal = () => {
+        const [uploadFile, setUploadFile] = useState<File | null>(null);
+        const [uploadCategory, setUploadCategory] = useState('CV');
+        const [uploadLoading, setUploadLoading] = useState(false);
+        const [uploadError, setUploadError] = useState('');
+
+        const documentCategories = [
+            'CV',
+            'OFFER_LETTER',
+            'CONTRACT',
+            'IDENTIFICATION',
+            'CERTIFICATE',
+            'OTHER'
+        ];
+
+        const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0];
+            if (file) {
+                // Check file size (max 10MB)
+                if (file.size > 10 * 1024 * 1024) {
+                    setUploadError('File size must be less than 10MB');
+                    return;
+                }
+                setUploadFile(file);
+                setUploadError('');
+            }
+        };
+
+        const handleUploadSubmit = async (e: React.FormEvent) => {
+            e.preventDefault();
+            if (!uploadFile) {
+                setUploadError('Please select a file to upload');
+                return;
+            }
+
+            setUploadLoading(true);
+            setUploadError('');
+
+            try {
+                const formData = new FormData();
+                formData.append('file', uploadFile);
+                formData.append('staffId', staff?.id || '');
+                formData.append('category', uploadCategory);
+
+                const response = await axios.post('/files/upload', formData, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data'
+                    }
+                });
+
+                if (response.data.success) {
+                    alert('Document uploaded successfully!');
+                    setShowUploadModal(false);
+                    fetchStaffData(); // Refresh to show new document
+                }
+            } catch (error: any) {
+                setUploadError(error.response?.data?.error?.message || 'Failed to upload document');
+            } finally {
+                setUploadLoading(false);
+            }
+        };
+
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-xl font-semibold text-gray-900">
+                            Upload Document
+                        </h2>
+                        <button
+                            onClick={() => setShowUploadModal(false)}
+                            className="text-2xl text-gray-500 hover:text-gray-700 bg-none border-none cursor-pointer"
+                        >
+                            ×
+                        </button>
+                    </div>
+
+                    {uploadError && (
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-md mb-4">
+                            {uploadError}
+                        </div>
+                    )}
+
+                    <form onSubmit={handleUploadSubmit}>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Document Category
+                                </label>
+                                <select
+                                    value={uploadCategory}
+                                    onChange={(e) => setUploadCategory(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                >
+                                    {documentCategories.map(category => (
+                                        <option key={category} value={category}>
+                                            {category.replace('_', ' ')}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Select File
+                                </label>
+                                <input
+                                    type="file"
+                                    onChange={handleFileChange}
+                                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Supported formats: PDF, DOC, DOCX, JPG, PNG, TXT (Max 10MB)
+                                </p>
+                            </div>
+
+                            {uploadFile && (
+                                <div className="bg-gray-50 p-3 rounded-md">
+                                    <p className="text-sm text-gray-700">
+                                        <strong>Selected:</strong> {uploadFile.name}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                        Size: {(uploadFile.size / 1024 / 1024).toFixed(2)} MB
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex gap-4 justify-end pt-6 mt-6 border-t border-gray-200">
+                            <button
+                                type="button"
+                                onClick={() => setShowUploadModal(false)}
+                                disabled={uploadLoading}
+                                className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={uploadLoading || !uploadFile}
+                                className="px-4 py-2 bg-sky-500 text-white rounded-md hover:bg-sky-600 disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {uploadLoading && (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                )}
+                                {uploadLoading ? 'Uploading...' : 'Upload Document'}
                             </button>
                         </div>
                     </form>
@@ -1105,24 +1328,56 @@ const StaffProfile: React.FC = () => {
 
                         {activeTab === 'documents' && canEditStaff && (
                             <div>
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="text-lg font-semibold text-gray-900">Staff Documents</h3>
+                                    <button
+                                        onClick={() => setShowUploadModal(true)}
+                                        className="bg-sky-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-sky-600 flex items-center gap-2"
+                                    >
+                                        📎 Upload Document
+                                    </button>
+                                </div>
+
                                 {staff.documents.length > 0 ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {staff.documents.map((document) => (
-                                            <div key={document.id} className="bg-gray-50 rounded-lg p-4">
+                                            <div key={document.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                                                 <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-sm font-medium text-gray-900">{document.category}</span>
+                                                    <span className="text-sm font-medium text-gray-900 bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                                        {document.category}
+                                                    </span>
                                                     <span className="text-xs text-gray-500">{formatDate(document.uploadedAt)}</span>
                                                 </div>
-                                                <p className="text-sm text-gray-600 truncate">{document.originalName}</p>
-                                                <button className="mt-2 text-sky-600 hover:text-sky-800 text-sm font-medium">
-                                                    Download
-                                                </button>
+                                                <p className="text-sm text-gray-600 truncate mb-3" title={document.originalName}>
+                                                    {document.originalName}
+                                                </p>
+                                                <div className="flex gap-2">
+                                                    <button 
+                                                        onClick={() => handleDownloadDocument(document.id, document.originalName)}
+                                                        className="text-sky-600 hover:text-sky-800 text-sm font-medium"
+                                                    >
+                                                        📥 Download
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => handleDeleteDocument(document.id, document.originalName)}
+                                                        className="text-red-600 hover:text-red-800 text-sm font-medium"
+                                                    >
+                                                        🗑️ Delete
+                                                    </button>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="text-center py-8">
-                                        <p className="text-gray-500">No documents found for this staff member.</p>
+                                    <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                                        <div className="text-4xl mb-4">📄</div>
+                                        <p className="text-gray-500 mb-4">No documents found for this staff member.</p>
+                                        <button
+                                            onClick={() => setShowUploadModal(true)}
+                                            className="bg-sky-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-sky-600"
+                                        >
+                                            Upload First Document
+                                        </button>
                                     </div>
                                 )}
                             </div>
@@ -1133,6 +1388,9 @@ const StaffProfile: React.FC = () => {
 
             {/* Comprehensive Edit Staff Modal */}
             {showEditModal && staff && <ComprehensiveEditModal />}
+
+            {/* Document Upload Modal */}
+            {showUploadModal && staff && <DocumentUploadModal />}
         </div>
     );
 };
