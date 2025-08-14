@@ -814,7 +814,7 @@ const StaffProfile: React.FC = () => {
 
             try {
                 const formData = new FormData();
-                formData.append('file', uploadFile);
+                formData.append('files', uploadFile); // Changed from 'file' to 'files'
                 formData.append('staffId', staff?.id || '');
                 formData.append('category', uploadCategory);
 
@@ -838,7 +838,7 @@ const StaffProfile: React.FC = () => {
 
         return (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-xl font-semibold text-gray-900">
                             Upload Document
@@ -962,33 +962,36 @@ const StaffProfile: React.FC = () => {
                 </div>
             </nav>
 
-            <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <main className="max-w-7xl mx-auto py-4 px-4 sm:py-6 sm:px-6 lg:px-8">
                 {/* Staff Header */}
-                <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center">
-                            <div className="h-16 w-16 bg-sky-500 rounded-full flex items-center justify-center text-white text-xl font-bold">
+                <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6">
+                    <div className="flex flex-col space-y-4">
+                        {/* Mobile-first layout */}
+                        <div className="flex items-center space-x-4">
+                            <div className="h-12 w-12 sm:h-16 sm:w-16 bg-sky-500 rounded-full flex items-center justify-center text-white text-lg sm:text-xl font-bold flex-shrink-0">
                                 {staff.fullName.split(' ').map(n => n[0]).join('').toUpperCase()}
                             </div>
-                            <div className="ml-4">
-                                <h1 className="text-2xl font-bold text-gray-900">{staff.fullName}</h1>
-                                <p className="text-gray-600">{staff.jobTitle} • {staff.department}</p>
-                                <p className="text-sm text-gray-500">Employee ID: {staff.employeeId}</p>
+                            <div className="flex-1 min-w-0">
+                                <h1 className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{staff.fullName}</h1>
+                                <p className="text-sm sm:text-base text-gray-600 truncate">{staff.jobTitle} • {staff.department}</p>
+                                <p className="text-xs sm:text-sm text-gray-500">Employee ID: {staff.employeeId}</p>
                             </div>
                         </div>
-                        <div className="mt-4 sm:mt-0 flex items-center gap-3">
-                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(staff.isActive ? 'ACTIVE' : 'INACTIVE')}`}>
+                        
+                        {/* Status badges and actions */}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(staff.isActive ? 'ACTIVE' : 'INACTIVE')}`}>
                                 {staff.isActive ? 'Active' : 'Inactive'}
                             </span>
                             {staff.isExternallyPaid && (
-                                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                                     External Payroll
                                 </span>
                             )}
                             {canEditStaff && (
                                 <button
                                     onClick={() => setShowEditModal(true)}
-                                    className="bg-sky-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-sky-600 flex items-center gap-2"
+                                    className="bg-sky-500 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-sky-600 flex items-center gap-1"
                                 >
                                     ✏️ Edit Staff
                                 </button>
@@ -1000,7 +1003,7 @@ const StaffProfile: React.FC = () => {
                 {/* Tabs */}
                 <div className="bg-white rounded-lg shadow-sm mb-6">
                     <div className="border-b border-gray-200">
-                        <nav className="flex space-x-8 px-6">
+                        <nav className="flex overflow-x-auto px-4 sm:px-6">
                             {[
                                 { key: 'overview', label: 'Overview', icon: '👤', show: true },
                                 { key: 'salary', label: 'Salary', icon: '💰', show: canViewSalary },
@@ -1011,14 +1014,15 @@ const StaffProfile: React.FC = () => {
                                 <button
                                     key={tab.key}
                                     onClick={() => setActiveTab(tab.key as any)}
-                                    className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
+                                    className={`py-3 px-2 sm:px-4 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
                                         activeTab === tab.key
                                             ? 'border-sky-500 text-sky-600'
                                             : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                     }`}
                                 >
-                                    <span>{tab.icon}</span>
-                                    {tab.label}
+                                    <span className="text-sm sm:text-base">{tab.icon}</span>
+                                    <span className="hidden sm:inline">{tab.label}</span>
+                                    <span className="sm:hidden text-xs">{tab.label}</span>
                                 </button>
                             ))}
                         </nav>
@@ -1026,7 +1030,7 @@ const StaffProfile: React.FC = () => {
 
                     <div className="p-6">
                         {activeTab === 'overview' && (
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                                 {/* Personal Information */}
                                 <div className="bg-gray-50 rounded-lg p-4">
                                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h3>
@@ -1157,7 +1161,7 @@ const StaffProfile: React.FC = () => {
                         {activeTab === 'salary' && canViewSalary && (
                             <div>
                                 {currentSalary ? (
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                                         <div className="bg-gray-50 rounded-lg p-4">
                                             <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Salary Structure</h3>
                                             <div className="space-y-3">
@@ -1328,11 +1332,11 @@ const StaffProfile: React.FC = () => {
 
                         {activeTab === 'documents' && canEditStaff && (
                             <div>
-                                <div className="flex justify-between items-center mb-6">
+                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                                     <h3 className="text-lg font-semibold text-gray-900">Staff Documents</h3>
                                     <button
                                         onClick={() => setShowUploadModal(true)}
-                                        className="bg-sky-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-sky-600 flex items-center gap-2"
+                                        className="bg-sky-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-sky-600 flex items-center justify-center gap-2 w-full sm:w-auto"
                                     >
                                         📎 Upload Document
                                     </button>
