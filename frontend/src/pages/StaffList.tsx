@@ -536,6 +536,404 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ onClose, onSuccess }) => 
   );
 };
 
+interface EditStaffModalProps {
+  staff: Staff;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+const EditStaffModal: React.FC<EditStaffModalProps> = ({ staff, onClose, onSuccess }) => {
+  const [formData, setFormData] = useState({
+    employeeId: staff.employeeId,
+    fullName: staff.fullName,
+    dateOfBirth: staff.dateOfJoining ? new Date(staff.dateOfJoining).toISOString().split('T')[0] : '',
+    gender: 'MALE',
+    maritalStatus: 'SINGLE',
+    nationality: 'Nigerian',
+    address: '',
+    personalEmail: '',
+    workEmail: staff.workEmail || '',
+    phoneNumbers: [''],
+    jobTitle: staff.jobTitle || '',
+    department: staff.department || '',
+    reportingManagerId: staff.reportingManager?.id || '',
+    dateOfJoining: staff.dateOfJoining ? new Date(staff.dateOfJoining).toISOString().split('T')[0] : '',
+    employmentType: staff.employmentType || 'FULL_TIME',
+    workLocation: '',
+    emergencyContactName: '',
+    emergencyContactRelationship: '',
+    emergencyContactPhone: '',
+    isExternallyPaid: false,
+    isActive: staff.isActive
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [managers, setManagers] = useState<Staff[]>([]);
+  const [positions, setPositions] = useState<Category[]>([]);
+  const [departments, setDepartments] = useState<Category[]>([]);
+  const [jobTypes, setJobTypes] = useState<Category[]>([]);
+
+  useEffect(() => {
+    fetchStaffDetails();
+    fetchManagers();
+    fetchCategories();
+  }, []);
+
+  const fetchStaffDetails = async () => {
+    try {
+      const response = await axios.get(`/staff/${staff.id}`);
+      if (response.data.success) {
+        const staffData = response.data.data;
+        setFormData({
+          employeeId: staffData.employeeId,
+          fullName: staffData.fullName,
+          dateOfBirth: staffData.dateOfBirth ? new Date(staffData.dateOfBirth).toISOString().split('T')[0] : '',
+          gender: staffData.gender || 'MALE',
+          maritalStatus: staffData.maritalStatus || 'SINGLE',
+          nationality: staffData.nationality || 'Nigerian',
+          address: staffData.address || '',
+          personalEmail: staffData.personalEmail || '',
+          workEmail: staffData.workEmail || '',
+          phoneNumbers: staffData.phoneNumbers.length > 0 ? staffData.phoneNumbers : [''],
+          jobTitle: staffData.jobTitle || '',
+          department: staffData.department || '',
+          reportingManagerId: staffData.reportingManager?.id || '',
+          dateOfJoining: staffData.dateOfJoining ? new Date(staffData.dateOfJoining).toISOString().split('T')[0] : '',
+          employmentType: staffData.employmentType || 'FULL_TIME',
+          workLocation: staffData.workLocation || '',
+          emergencyContactName: staffData.emergencyContactName || '',
+          emergencyContactRelationship: staffData.emergencyContactRelationship || '',
+          emergencyContactPhone: staffData.emergencyContactPhone || '',
+          isExternallyPaid: staffData.isExternallyPaid || false,
+          isActive: staffData.isActive
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch staff details:', error);
+    }
+  };
+
+  const fetchManagers = async () => {
+    try {
+      const response = await axios.get('/staff?limit=100');
+      if (response.data.success) {
+        setManagers(response.data.data.staff.filter((s: Staff) => s.id !== staff.id));
+      }
+    } catch (error) {
+      console.error('Failed to fetch managers:', error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get('/admin/categories');
+      if (response.data.success) {
+        const categories = response.data.data;
+        setPositions(categories.filter((cat: Category) => cat.type === 'POSITION'));
+        setDepartments(categories.filter((cat: Category) => cat.type === 'DEPARTMENT'));
+        setJobTypes(categories.filter((cat: Category) => cat.type === 'JOB_TYPE'));
+      }
+    } catch (error) {
+      console.error('Failed to fetch categories:', error);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData(prev => ({ ...prev, [name]: checked }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handlePhoneChange = (index: number, value: string) => {
+    const newPhones = [...formData.phoneNumbers];
+    newPhones[index] = value;
+    setFormData(prev => ({ ...prev, phoneNumbers: newPhones }));
+  };
+
+  const addPhoneNumber = () => {
+    setFormData(prev => ({ ...prev, phoneNumbers: [...prev.phoneNumbers, ''] }));
+  };
+
+  const removePhoneNumber = (index: number) => {
+    if (formData.phoneNumbers.length > 1) {
+      const newPhones = formData.phoneNumbers.filter((_, i) => i !== index);
+      setFormData(prev => ({ ...prev, phoneNumbers: newPhones }));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    // Validate required fields
+    if (!formData.fullName.trim()) {
+      setError('Full Name is required');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.employeeId.trim()) {
+      setError('Employee ID is required');
+      setLoading(false);
+      return;
+    }
+
+    const validPhones = formData.phoneNumbers.filter(phone => phone.trim() !== '');
+    if (validPhones.length === 0) {
+      setError('At least one phone number is required');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const response = await axios.put(`/staff/${staff.id}`, {
+        ...formData,
+        phoneNumbers: validPhones
+      });
+
+      if (response.data.success) {
+        onSuccess();
+        onClose();
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.error?.message || 'Failed to update staff member');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-semibold text-gray-900">
+            Edit Staff Member - {staff.fullName}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-2xl text-gray-500 hover:text-gray-700 bg-none border-none cursor-pointer"
+          >
+            ×
+          </button>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-md mb-4">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {/* Basic Information */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Employee ID *
+                </label>
+                <input
+                  type="text"
+                  name="employeeId"
+                  value={formData.employeeId}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Work Email
+                </label>
+                <input
+                  type="email"
+                  name="workEmail"
+                  value={formData.workEmail}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone Numbers *
+                </label>
+                {formData.phoneNumbers.map((phone, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => handlePhoneChange(index, e.target.value)}
+                      placeholder="Phone number"
+                      required={index === 0}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    {formData.phoneNumbers.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removePhoneNumber(index)}
+                        className="px-2 py-2 bg-red-600 text-white rounded-md border-none cursor-pointer hover:bg-red-700"
+                      >
+                        -
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addPhoneNumber}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md border-none cursor-pointer text-sm hover:bg-green-700"
+                >
+                  Add Phone
+                </button>
+              </div>
+            </div>
+
+            {/* Job Information */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Job Information</h3>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Job Title
+                </label>
+                <input
+                  type="text"
+                  name="jobTitle"
+                  value={formData.jobTitle}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Department
+                </label>
+                <input
+                  type="text"
+                  name="department"
+                  value={formData.department}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reporting Manager
+                </label>
+                <select
+                  name="reportingManagerId"
+                  value={formData.reportingManagerId}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select Manager</option>
+                  {managers.map(manager => (
+                    <option key={manager.id} value={manager.id}>
+                      {manager.fullName} ({manager.employeeId})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Employment Type
+                </label>
+                <select
+                  name="employmentType"
+                  value={formData.employmentType}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="FULL_TIME">Full Time</option>
+                  <option value="PART_TIME">Part Time</option>
+                  <option value="CONTRACT">Contract</option>
+                </select>
+              </div>
+
+              <div className="mb-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    name="isActive"
+                    checked={formData.isActive}
+                    onChange={handleInputChange}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">
+                    Active Employee
+                  </span>
+                </label>
+              </div>
+
+              <div className="mb-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    name="isExternallyPaid"
+                    checked={formData.isExternallyPaid}
+                    onChange={handleInputChange}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">
+                    Is Externally Paid
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Form Actions */}
+          <div className="flex gap-4 justify-end pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="px-6 py-3 bg-gray-500 text-white rounded-md text-sm font-medium border-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 hover:bg-gray-600"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-6 py-3 bg-sky-500 text-white rounded-md text-sm font-medium border-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 hover:bg-sky-600"
+            >
+              {loading && (
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+              )}
+              {loading ? 'Updating...' : 'Update Staff Member'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 interface Staff {
   id: string;
   employeeId: string;
@@ -583,6 +981,8 @@ const StaffList: React.FC = () => {
     hasPrev: false
   });
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
 
   useEffect(() => {
     fetchStaff();
@@ -649,6 +1049,29 @@ const StaffList: React.FC = () => {
       case 'PART_TIME': return '#f59e0b';
       case 'CONTRACT': return '#8b5cf6';
       default: return '#6b7280';
+    }
+  };
+
+  const handleEditStaff = (staffMember: Staff) => {
+    setEditingStaff(staffMember);
+    setShowEditForm(true);
+  };
+
+  const handleDeleteStaff = async (staffId: string, staffName: string) => {
+    if (!window.confirm(`Are you sure you want to delete ${staffName}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const response = await axios.delete(`/staff/${staffId}`);
+      if (response.data.success) {
+        alert('Staff member deleted successfully!');
+        fetchStaff(); // Refresh the list
+      }
+    } catch (error: any) {
+      console.error('Failed to delete staff:', error);
+      const message = error.response?.data?.error?.message || 'Failed to delete staff member';
+      alert(`Error: ${message}`);
     }
   };
 
@@ -857,8 +1280,17 @@ const StaffList: React.FC = () => {
                               >
                                 View
                               </button>
-                              <button className="px-2 py-1 bg-green-600 text-white rounded text-xs border-none cursor-pointer hover:bg-green-700">
+                              <button 
+                                onClick={() => handleEditStaff(member)}
+                                className="px-2 py-1 bg-green-600 text-white rounded text-xs border-none cursor-pointer hover:bg-green-700"
+                              >
                                 Edit
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteStaff(member.id, member.fullName)}
+                                className="px-2 py-1 bg-red-600 text-white rounded text-xs border-none cursor-pointer hover:bg-red-700"
+                              >
+                                Delete
                               </button>
                             </div>
                           </td>
@@ -911,6 +1343,18 @@ const StaffList: React.FC = () => {
 
       {/* Add Staff Modal */}
       {showAddForm && <AddStaffModal onClose={() => setShowAddForm(false)} onSuccess={fetchStaff} />}
+      
+      {/* Edit Staff Modal */}
+      {showEditForm && editingStaff && (
+        <EditStaffModal 
+          staff={editingStaff} 
+          onClose={() => {
+            setShowEditForm(false);
+            setEditingStaff(null);
+          }} 
+          onSuccess={fetchStaff} 
+        />
+      )}
     </div>
   );
 };
