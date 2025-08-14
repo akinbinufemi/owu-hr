@@ -449,9 +449,9 @@ const InteractiveOrganogramCanvas: React.FC<InteractiveOrganogramCanvasProps> = 
         <svg
           width="100%"
           height="100%"
+          viewBox={`${-pan.x / zoom} ${-pan.y / zoom} ${(canvasRef.current?.clientWidth || 800) / zoom} ${(canvasRef.current?.clientHeight || 600) / zoom}`}
           style={{
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-            transformOrigin: 'center center'
+            overflow: 'visible'
           }}
         >
           <defs>
@@ -459,7 +459,15 @@ const InteractiveOrganogramCanvas: React.FC<InteractiveOrganogramCanvasProps> = 
               <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#e5e7eb" strokeWidth="1" opacity="0.3"/>
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#grid)" />
+          
+          {/* Large background grid */}
+          <rect 
+            x={-10000} 
+            y={-10000} 
+            width={20000} 
+            height={20000} 
+            fill="url(#grid)" 
+          />
           
           {organogramData.organogram.map((rootNode, index) => {
             const startX = 400 + index * 500;
