@@ -41,12 +41,13 @@ interface StaffDetails {
 
 interface OrganogramData {
   organogram: OrganogramNode[];
-  statistics: {
+  statistics?: {
     totalEmployees: number;
     departmentCounts: Record<string, number>;
     maxLevel: number;
     rootNodes: number;
   };
+  totalEmployees?: number; // For flat view
 }
 
 const Organogram: React.FC = () => {
@@ -85,7 +86,7 @@ const Organogram: React.FC = () => {
 
   const fetchStaffDetails = async (staffId: string) => {
     try {
-      const response = await axios.get(`/api/organogram/staff/${staffId}`);
+      const response = await axios.get(`/organogram/staff/${staffId}`);
       if (response.data.success) {
         setSelectedStaff(response.data.data);
         setShowStaffDetails(true);
@@ -535,20 +536,48 @@ const Organogram: React.FC = () => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
             <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)' }}>
               <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Total Employees</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#111827' }}>{organogramData.statistics.totalEmployees}</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#111827' }}>
+                {viewMode === 'flat' ? (organogramData as any).totalEmployees : organogramData.statistics?.totalEmployees || 0}
+              </div>
             </div>
-            <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)' }}>
-              <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Departments</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#111827' }}>{Object.keys(organogramData.statistics.departmentCounts).length}</div>
-            </div>
-            <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)' }}>
-              <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Hierarchy Levels</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#111827' }}>{organogramData.statistics.maxLevel}</div>
-            </div>
-            <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)' }}>
-              <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Top Level Positions</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#111827' }}>{organogramData.statistics.rootNodes}</div>
-            </div>
+            {viewMode === 'tree' && organogramData.statistics && (
+              <>
+                <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)' }}>
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Departments</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#111827' }}>{Object.keys(organogramData.statistics.departmentCounts).length}</div>
+                </div>
+                <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)' }}>
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Hierarchy Levels</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#111827' }}>{organogramData.statistics.maxLevel}</div>
+                </div>
+                <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)' }}>
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Top Level Positions</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#111827' }}>{organogramData.statistics.rootNodes}</div>
+                </div>
+              </>
+            )}
+            {viewMode === 'flat' && (
+              <>
+                <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)' }}>
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Departments</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#111827' }}>
+                    {new Set(organogramData.organogram.map((node: any) => node.department || 'Unassigned')).size}
+                  </div>
+                </div>
+                <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)' }}>
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Hierarchy Levels</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#111827' }}>
+                    {Math.max(...organogramData.organogram.map((node: any) => node.level)) + 1}
+                  </div>
+                </div>
+                <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '0.5rem', boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)' }}>
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Top Level Positions</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#111827' }}>
+                    {organogramData.organogram.filter((node: any) => node.level === 0).length}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
