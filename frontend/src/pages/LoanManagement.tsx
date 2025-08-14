@@ -175,8 +175,9 @@ const LoanManagement: React.FC = () => {
     e.preventDefault();
     try {
       setLoading(true);
+      const { monthlyInstallment, ...loanData } = createForm;
       const response = await axios.post('/loans', {
-        ...createForm,
+        ...loanData,
         amount: parseFloat(createForm.amount),
         repaymentTerms: parseInt(createForm.repaymentTerms),
         monthlyDeduction: parseFloat(createForm.monthlyInstallment),
