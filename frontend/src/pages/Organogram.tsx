@@ -79,12 +79,14 @@ const InteractiveOrganogramCanvas: React.FC<InteractiveOrganogramCanvasProps> = 
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
     setIsDragging(true);
     setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isDragging) {
+      e.preventDefault();
       setPan({
         x: e.clientX - dragStart.x,
         y: e.clientY - dragStart.y
@@ -93,6 +95,32 @@ const InteractiveOrganogramCanvas: React.FC<InteractiveOrganogramCanvasProps> = 
   };
 
   const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Touch event handlers for mobile support
+  const handleTouchStart = (e: React.TouchEvent) => {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      setIsDragging(true);
+      setDragStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    e.preventDefault();
+    if (isDragging && e.touches.length === 1) {
+      const touch = e.touches[0];
+      setPan({
+        x: touch.clientX - dragStart.x,
+        y: touch.clientY - dragStart.y
+      });
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    e.preventDefault();
     setIsDragging(false);
   };
 
@@ -302,26 +330,41 @@ const InteractiveOrganogramCanvas: React.FC<InteractiveOrganogramCanvasProps> = 
       {/* Header */}
       <div style={{
         backgroundColor: 'white',
-        padding: '1rem',
+        padding: '0.5rem 1rem',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        flexWrap: 'wrap',
+        gap: '0.5rem'
       }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#111827' }}>
+        <h2 style={{ 
+          fontSize: window.innerWidth < 768 ? '1rem' : '1.25rem', 
+          fontWeight: '600', 
+          color: '#111827',
+          margin: 0
+        }}>
           Interactive Organizational Chart
         </h2>
         
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <div style={{ 
+          display: 'flex', 
+          gap: window.innerWidth < 768 ? '0.25rem' : '0.5rem', 
+          alignItems: 'center',
+          flexWrap: 'wrap'
+        }}>
           <button
             onClick={() => setZoom(prev => Math.min(3, prev * 1.2))}
             style={{
-              padding: '0.5rem',
+              padding: window.innerWidth < 768 ? '0.75rem' : '0.5rem',
               backgroundColor: '#0ea5e9',
               color: 'white',
               border: 'none',
               borderRadius: '0.25rem',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              fontSize: window.innerWidth < 768 ? '1.2rem' : '1rem',
+              minWidth: '44px',
+              minHeight: '44px'
             }}
           >
             🔍+
@@ -329,12 +372,15 @@ const InteractiveOrganogramCanvas: React.FC<InteractiveOrganogramCanvasProps> = 
           <button
             onClick={() => setZoom(prev => Math.max(0.1, prev * 0.8))}
             style={{
-              padding: '0.5rem',
+              padding: window.innerWidth < 768 ? '0.75rem' : '0.5rem',
               backgroundColor: '#0ea5e9',
               color: 'white',
               border: 'none',
               borderRadius: '0.25rem',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              fontSize: window.innerWidth < 768 ? '1.2rem' : '1rem',
+              minWidth: '44px',
+              minHeight: '44px'
             }}
           >
             🔍-
@@ -417,6 +463,9 @@ const InteractiveOrganogramCanvas: React.FC<InteractiveOrganogramCanvasProps> = 
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         <svg
           width="100%"
@@ -445,16 +494,19 @@ const InteractiveOrganogramCanvas: React.FC<InteractiveOrganogramCanvasProps> = 
           position: 'absolute',
           bottom: '1rem',
           left: '1rem',
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
           padding: '0.75rem',
           borderRadius: '0.5rem',
-          fontSize: '0.875rem',
-          color: '#6b7280'
+          fontSize: window.innerWidth < 768 ? '0.75rem' : '0.875rem',
+          color: '#6b7280',
+          maxWidth: window.innerWidth < 768 ? '200px' : 'auto',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
         }}>
-          <div><strong>Instructions:</strong></div>
-          <div>• Mouse wheel to zoom in/out</div>
-          <div>• Click and drag to pan around</div>
-          <div>• Click + or - buttons on nodes to expand/collapse</div>
+          <div><strong>Controls:</strong></div>
+          <div>• Mouse wheel / Pinch to zoom</div>
+          <div>• Click & drag / Touch & drag to pan</div>
+          <div>• Click + or - on nodes to expand/collapse</div>
+          <div>• Use control buttons above</div>
         </div>
       </div>
     </div>
