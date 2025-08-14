@@ -5,6 +5,8 @@ interface Admin {
   id: string;
   email: string;
   fullName: string;
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'HR_MANAGER' | 'VIEWER';
+  permissions: string[];
 }
 
 interface AuthContextType {
