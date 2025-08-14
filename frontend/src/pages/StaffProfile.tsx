@@ -200,6 +200,512 @@ const StaffProfile: React.FC = () => {
     
     const netSalary = totalGrossSalary - totalDeductions;
 
+    // Comprehensive Edit Modal Component
+    const ComprehensiveEditModal = () => {
+        const [editFormData, setEditFormData] = useState({
+            employeeId: staff?.employeeId || '',
+            fullName: staff?.fullName || '',
+            dateOfBirth: staff?.dateOfBirth ? new Date(staff.dateOfBirth).toISOString().split('T')[0] : '',
+            gender: staff?.gender || 'MALE',
+            maritalStatus: staff?.maritalStatus || 'SINGLE',
+            nationality: staff?.nationality || '',
+            address: staff?.address || '',
+            personalEmail: staff?.personalEmail || '',
+            workEmail: staff?.workEmail || '',
+            phoneNumbers: staff?.phoneNumbers?.length > 0 ? staff.phoneNumbers : [''],
+            jobTitle: staff?.jobTitle || '',
+            department: staff?.department || '',
+            reportingManagerId: staff?.reportingManager?.id || '',
+            dateOfJoining: staff?.dateOfJoining ? new Date(staff.dateOfJoining).toISOString().split('T')[0] : '',
+            employmentType: staff?.employmentType || 'FULL_TIME',
+            workLocation: staff?.workLocation || '',
+            emergencyContactName: staff?.emergencyContactName || '',
+            emergencyContactRelationship: staff?.emergencyContactRelationship || '',
+            emergencyContactPhone: staff?.emergencyContactPhone || '',
+            isExternallyPaid: staff?.isExternallyPaid || false,
+            isActive: staff?.isActive || true
+        });
+        const [editLoading, setEditLoading] = useState(false);
+        const [editError, setEditError] = useState('');
+        const [managers, setManagers] = useState<any[]>([]);
+
+        useEffect(() => {
+            fetchManagersForEdit();
+        }, []);
+
+        const fetchManagersForEdit = async () => {
+            try {
+                const response = await axios.get('/staff?limit=100');
+                if (response.data.success) {
+                    setManagers(response.data.data.staff.filter((s: any) => s.id !== staff?.id));
+                }
+            } catch (error) {
+                console.error('Failed to fetch managers:', error);
+            }
+        };
+
+        const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+            const { name, value, type } = e.target;
+            if (type === 'checkbox') {
+                const checked = (e.target as HTMLInputElement).checked;
+                setEditFormData(prev => ({ ...prev, [name]: checked }));
+            } else {
+                setEditFormData(prev => ({ ...prev, [name]: value }));
+            }
+        };
+
+        const handleEditPhoneChange = (index: number, value: string) => {
+            const newPhones = [...editFormData.phoneNumbers];
+            newPhones[index] = value;
+            setEditFormData(prev => ({ ...prev, phoneNumbers: newPhones }));
+        };
+
+        const addEditPhoneNumber = () => {
+            setEditFormData(prev => ({ ...prev, phoneNumbers: [...prev.phoneNumbers, ''] }));
+        };
+
+        const removeEditPhoneNumber = (index: number) => {
+            if (editFormData.phoneNumbers.length > 1) {
+                const newPhones = editFormData.phoneNumbers.filter((_, i) => i !== index);
+                setEditFormData(prev => ({ ...prev, phoneNumbers: newPhones }));
+            }
+        };
+
+        const handleEditSubmit = async (e: React.FormEvent) => {
+            e.preventDefault();
+            setEditLoading(true);
+            setEditError('');
+
+            // Validate required fields
+            if (!editFormData.fullName.trim()) {
+                setEditError('Full Name is required');
+                setEditLoading(false);
+                return;
+            }
+
+            if (!editFormData.employeeId.trim()) {
+                setEditError('Employee ID is required');
+                setEditLoading(false);
+                return;
+            }
+
+            const validPhones = editFormData.phoneNumbers.filter(phone => phone.trim() !== '');
+            if (validPhones.length === 0) {
+                setEditError('At least one phone number is required');
+                setEditLoading(false);
+                return;
+            }
+
+            try {
+                const response = await axios.put(`/staff/${staff?.id}`, {
+                    ...editFormData,
+                    phoneNumbers: validPhones
+                });
+
+                if (response.data.success) {
+                    alert('Staff member updated successfully!');
+                    setShowEditModal(false);
+                    fetchStaffData(); // Refresh data
+                }
+            } catch (err: any) {
+                setEditError(err.response?.data?.error?.message || 'Failed to update staff member');
+            } finally {
+                setEditLoading(false);
+            }
+        };
+
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg p-6 max-w-6xl w-full max-h-[95vh] overflow-y-auto">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-semibold text-gray-900">
+                            Edit Staff Member - {staff?.fullName}
+                        </h2>
+                        <button
+                            onClick={() => setShowEditModal(false)}
+                            className="text-2xl text-gray-500 hover:text-gray-700 bg-none border-none cursor-pointer"
+                        >
+                            ×
+                        </button>
+                    </div>
+
+                    {editError && (
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-md mb-4">
+                            {editError}
+                        </div>
+                    )}
+
+                    <form onSubmit={handleEditSubmit}>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
+                            {/* Personal Information */}
+                            <div>
+                                <h3 className="text-lg font-medium text-gray-900 mb-4">Personal Information</h3>
+                                
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Employee ID *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="employeeId"
+                                            value={editFormData.employeeId}
+                                            onChange={handleEditInputChange}
+                                            required
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Full Name *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="fullName"
+                                            value={editFormData.fullName}
+                                            onChange={handleEditInputChange}
+                                            required
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Date of Birth
+                                        </label>
+                                        <input
+                                            type="date"
+                                            name="dateOfBirth"
+                                            value={editFormData.dateOfBirth}
+                                            onChange={handleEditInputChange}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Gender
+                                            </label>
+                                            <select
+                                                name="gender"
+                                                value={editFormData.gender}
+                                                onChange={handleEditInputChange}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                            >
+                                                <option value="MALE">Male</option>
+                                                <option value="FEMALE">Female</option>
+                                                <option value="OTHER">Other</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                                Marital Status
+                                            </label>
+                                            <select
+                                                name="maritalStatus"
+                                                value={editFormData.maritalStatus}
+                                                onChange={handleEditInputChange}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                            >
+                                                <option value="SINGLE">Single</option>
+                                                <option value="MARRIED">Married</option>
+                                                <option value="DIVORCED">Divorced</option>
+                                                <option value="WIDOWED">Widowed</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Nationality
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="nationality"
+                                            value={editFormData.nationality}
+                                            onChange={handleEditInputChange}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Address
+                                        </label>
+                                        <textarea
+                                            name="address"
+                                            value={editFormData.address}
+                                            onChange={handleEditInputChange}
+                                            rows={3}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm resize-vertical focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Contact & Job Information */}
+                            <div>
+                                <h3 className="text-lg font-medium text-gray-900 mb-4">Contact & Job Information</h3>
+                                
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Personal Email
+                                        </label>
+                                        <input
+                                            type="email"
+                                            name="personalEmail"
+                                            value={editFormData.personalEmail}
+                                            onChange={handleEditInputChange}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Work Email
+                                        </label>
+                                        <input
+                                            type="email"
+                                            name="workEmail"
+                                            value={editFormData.workEmail}
+                                            onChange={handleEditInputChange}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Phone Numbers *
+                                        </label>
+                                        {editFormData.phoneNumbers.map((phone, index) => (
+                                            <div key={index} className="flex gap-2 mb-2">
+                                                <input
+                                                    type="tel"
+                                                    value={phone}
+                                                    onChange={(e) => handleEditPhoneChange(index, e.target.value)}
+                                                    placeholder="Phone number"
+                                                    required={index === 0}
+                                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                                />
+                                                {editFormData.phoneNumbers.length > 1 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeEditPhoneNumber(index)}
+                                                        className="px-2 py-2 bg-red-600 text-white rounded-md border-none cursor-pointer hover:bg-red-700"
+                                                    >
+                                                        -
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                        <button
+                                            type="button"
+                                            onClick={addEditPhoneNumber}
+                                            className="px-4 py-2 bg-green-600 text-white rounded-md border-none cursor-pointer text-sm hover:bg-green-700"
+                                        >
+                                            Add Phone
+                                        </button>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Job Title
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="jobTitle"
+                                            value={editFormData.jobTitle}
+                                            onChange={handleEditInputChange}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Department
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="department"
+                                            value={editFormData.department}
+                                            onChange={handleEditInputChange}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Reporting Manager
+                                        </label>
+                                        <select
+                                            name="reportingManagerId"
+                                            value={editFormData.reportingManagerId}
+                                            onChange={handleEditInputChange}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                        >
+                                            <option value="">Select Manager</option>
+                                            {managers.map(manager => (
+                                                <option key={manager.id} value={manager.id}>
+                                                    {manager.fullName} ({manager.employeeId})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Date of Joining
+                                        </label>
+                                        <input
+                                            type="date"
+                                            name="dateOfJoining"
+                                            value={editFormData.dateOfJoining}
+                                            onChange={handleEditInputChange}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Employment Type
+                                        </label>
+                                        <select
+                                            name="employmentType"
+                                            value={editFormData.employmentType}
+                                            onChange={handleEditInputChange}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                        >
+                                            <option value="FULL_TIME">Full Time</option>
+                                            <option value="PART_TIME">Part Time</option>
+                                            <option value="CONTRACT">Contract</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Work Location
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="workLocation"
+                                            value={editFormData.workLocation}
+                                            onChange={handleEditInputChange}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Emergency Contact */}
+                        <div className="mb-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Emergency Contact</h3>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Contact Name
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="emergencyContactName"
+                                        value={editFormData.emergencyContactName}
+                                        onChange={handleEditInputChange}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Relationship
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="emergencyContactRelationship"
+                                        value={editFormData.emergencyContactRelationship}
+                                        onChange={handleEditInputChange}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Contact Phone
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        name="emergencyContactPhone"
+                                        value={editFormData.emergencyContactPhone}
+                                        onChange={handleEditInputChange}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Status Options */}
+                        <div className="mb-6">
+                            <h3 className="text-lg font-medium text-gray-900 mb-4">Status</h3>
+                            <div className="flex gap-6">
+                                <label className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        name="isActive"
+                                        checked={editFormData.isActive}
+                                        onChange={handleEditInputChange}
+                                        className="rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                                    />
+                                    <span className="text-sm text-gray-700">
+                                        Active Employee
+                                    </span>
+                                </label>
+
+                                <label className="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        name="isExternallyPaid"
+                                        checked={editFormData.isExternallyPaid}
+                                        onChange={handleEditInputChange}
+                                        className="rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                                    />
+                                    <span className="text-sm text-gray-700">
+                                        Is Externally Paid
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Form Actions */}
+                        <div className="flex gap-4 justify-end pt-6 border-t border-gray-200">
+                            <button
+                                type="button"
+                                onClick={() => setShowEditModal(false)}
+                                disabled={editLoading}
+                                className="px-6 py-3 bg-gray-500 text-white rounded-md text-sm font-medium border-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 hover:bg-gray-600"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={editLoading}
+                                className="px-6 py-3 bg-sky-500 text-white rounded-md text-sm font-medium border-none cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 flex items-center gap-2 hover:bg-sky-600"
+                            >
+                                {editLoading && (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                )}
+                                {editLoading ? 'Updating...' : 'Update Staff Member'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Header */}
@@ -625,128 +1131,8 @@ const StaffProfile: React.FC = () => {
                 </div>
             </main>
 
-            {/* Edit Staff Modal */}
-            {showEditModal && staff && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-xl font-semibold text-gray-900">
-                                Edit Staff Member
-                            </h2>
-                            <button
-                                onClick={() => setShowEditModal(false)}
-                                className="text-2xl text-gray-500 hover:text-gray-700 bg-none border-none cursor-pointer"
-                            >
-                                ×
-                            </button>
-                        </div>
-
-                        <form onSubmit={async (e) => {
-                            e.preventDefault();
-                            const formData = new FormData(e.currentTarget);
-                            const data = {
-                                fullName: formData.get('fullName'),
-                                workEmail: formData.get('workEmail'),
-                                jobTitle: formData.get('jobTitle'),
-                                department: formData.get('department'),
-                                isActive: formData.get('isActive') === 'on'
-                            };
-
-                            try {
-                                const response = await axios.put(`/staff/${staff.id}`, data);
-                                if (response.data.success) {
-                                    alert('Staff member updated successfully!');
-                                    setShowEditModal(false);
-                                    fetchStaffData(); // Refresh data
-                                }
-                            } catch (error: any) {
-                                alert('Failed to update staff member: ' + (error.response?.data?.error?.message || error.message));
-                            }
-                        }}>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Full Name
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="fullName"
-                                        defaultValue={staff.fullName}
-                                        required
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Work Email
-                                    </label>
-                                    <input
-                                        type="email"
-                                        name="workEmail"
-                                        defaultValue={staff.workEmail}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Job Title
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="jobTitle"
-                                        defaultValue={staff.jobTitle}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Department
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="department"
-                                        defaultValue={staff.department}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="flex items-center gap-2">
-                                        <input
-                                            type="checkbox"
-                                            name="isActive"
-                                            defaultChecked={staff.isActive}
-                                            className="rounded border-gray-300 text-sky-600 focus:ring-sky-500"
-                                        />
-                                        <span className="text-sm text-gray-700">
-                                            Active Employee
-                                        </span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-4 justify-end pt-6 mt-6 border-t border-gray-200">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowEditModal(false)}
-                                    className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 bg-sky-500 text-white rounded-md hover:bg-sky-600"
-                                >
-                                    Update Staff
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            {/* Comprehensive Edit Staff Modal */}
+            {showEditModal && staff && <ComprehensiveEditModal />}
         </div>
     );
 };
