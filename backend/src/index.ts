@@ -15,6 +15,7 @@ import issuesRoutes from './routes/issues';
 import reportsRoutes from './routes/reports';
 import filesRoutes from './routes/files';
 import adminRoutes from './routes/admin';
+import backupRoutes from './routes/backup';
 
 // Load environment variables
 dotenv.config();
@@ -100,6 +101,7 @@ app.use('/api/issues', issuesRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/files', filesRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/backup', backupRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
