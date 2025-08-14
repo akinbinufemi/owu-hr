@@ -359,6 +359,18 @@ model Category {
   @@map("categories")
 }
 
+model ShareableLink {
+  id             String   @id @default(cuid())
+  shareId        String   @unique
+  organogramData Json     // Stored organogram data
+  createdBy      String
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime
+  isActive       Boolean  @default(true)
+
+  @@map("shareable_links")
+}
+
 enum CategoryType {
   POSITION
   DEPARTMENT

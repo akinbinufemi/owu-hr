@@ -312,7 +312,8 @@ export const getDepartmentHierarchy = async (req: AuthRequest, res: Response) =>
 export const createShareableLink = async (req: AuthRequest, res: Response) => {
   try {
     // Generate a unique share ID
-    const shareId = require('crypto').randomBytes(16).toString('hex');
+    const crypto = require('crypto');
+    const shareId = crypto.randomBytes(16).toString('hex');
     
     // Set expiry to 72 hours from now
     const expiresAt = new Date();
@@ -341,29 +342,15 @@ export const createShareableLink = async (req: AuthRequest, res: Response) => {
       ]
     });
 
-    // Store the shareable link in database (you might need to create this table)
-    // For now, we'll use a simple in-memory store or file system
-    // In production, you should create a proper database table
-    
-    const shareData = {
-      shareId,
-      organogramData: allStaff,
-      createdAt: new Date(),
-      expiresAt,
-      createdBy: req.admin?.id
-    };
-
-    // Store in a simple JSON file for now (in production, use database)
-    const fs = require('fs');
-    const path = require('path');
-    
-    const shareDir = path.join(process.cwd(), 'temp', 'shares');
-    if (!fs.existsSync(shareDir)) {
-      fs.mkdirSync(shareDir, { recursive: true });
-    }
-    
-    const shareFilePath = path.join(shareDir, `${shareId}.json`);
-    fs.writeFileSync(shareFilePath, JSON.stringify(shareData, null, 2));
+    // Store the shareable link in database
+    await prisma.shareableLink.create({
+      data: {
+        shareId,
+        organogramData: JSON.stringify(allStaff),
+        createdBy: req.admin?.id || 'unknown',
+        expiresAt
+      }
+    });
 
     res.json({
       success: true,
@@ -392,13 +379,12 @@ export const getSharedOrganogram = async (req: Request, res: Response) => {
   try {
     const { shareId } = req.params;
 
-    // Read the shared data
-    const fs = require('fs');
-    const path = require('path');
+    // Find the shared link in database
+    const shareableLink = await prisma.shareableLink.findUnique({
+      where: { shareId }
+    });
     
-    const shareFilePath = path.join(process.cwd(), 'temp', 'shares', `${shareId}.json`);
-    
-    if (!fs.existsSync(shareFilePath)) {
+    if (!shareableLink || !shareableLink.isActive) {
       return res.status(404).json({
         success: false,
         error: {
@@ -409,12 +395,14 @@ export const getSharedOrganogram = async (req: Request, res: Response) => {
       });
     }
 
-    const shareData = JSON.parse(fs.readFileSync(shareFilePath, 'utf8'));
-    
     // Check if link has expired
-    if (new Date() > new Date(shareData.expiresAt)) {
-      // Delete expired file
-      fs.unlinkSync(shareFilePath);
+    if (new Date() > shareableLink.expiresAt) {
+      // Mark as inactive instead of deleting
+      await prisma.shareableLink.update({
+        where: { id: shareableLink.id },
+        data: { isActive: false }
+      });
+      
       return res.status(410).json({
         success: false,
         error: {
@@ -425,8 +413,8 @@ export const getSharedOrganogram = async (req: Request, res: Response) => {
       });
     }
 
-    // Build the organizational hierarchy from stored data
-    const allStaff = shareData.organogramData;
+    // Parse the stored organogram data
+    const allStaff = JSON.parse(shareableLink.organogramData as string);
     const staffMap = new Map<string, OrganogramNode>();
     const rootNodes: OrganogramNode[] = [];
 
@@ -490,8 +478,8 @@ export const getSharedOrganogram = async (req: Request, res: Response) => {
           rootNodes: rootNodes.length
         },
         shareInfo: {
-          createdAt: shareData.createdAt,
-          expiresAt: shareData.expiresAt
+          createdAt: shareableLink.createdAt,
+          expiresAt: shareableLink.expiresAt
         }
       },
       timestamp: new Date().toISOString()
