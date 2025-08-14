@@ -15,6 +15,7 @@ import Reports from './pages/Reports';
 import FileManagement from './pages/FileManagement';
 import Settings from './pages/Settings';
 import StaffProfile from './pages/StaffProfile';
+import PublicOrganogram from './pages/PublicOrganogram';
 
 function App() {
   return (
@@ -73,6 +74,10 @@ function App() {
                     <Organogram />
                   </ProtectedRoute>
                 }
+              />
+              <Route
+                path="/organogram/public/:shareId"
+                element={<PublicOrganogram />}
               />
               <Route
                 path="/issues"
