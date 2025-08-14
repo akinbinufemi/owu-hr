@@ -502,7 +502,7 @@ export const getBackupStatus = async (req: AuthRequest, res: Response) => {
           oldestBackup: backupFiles.length > 0 ? backupFiles[backupFiles.length - 1].createdAt : null,
           newestBackup: backupFiles.length > 0 ? backupFiles[0].createdAt : null
         },
-        recommendations: this.generateRecommendations(backupFiles, totalCurrentRecords)
+        recommendations: generateRecommendations(backupFiles, totalCurrentRecords)
       },
       timestamp: new Date().toISOString()
     } as BackupResponse);
