@@ -1444,4 +1444,3 @@ const StaffProfile: React.FC = () => {
 };
 
 export default StaffProfile;
-export { };
