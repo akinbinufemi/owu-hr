@@ -1051,6 +1051,7 @@ const StaffProfile: React.FC = () => {
                     </div>
                 </div>
 
+                <div className="bg-white rounded-xl shadow-sm overflow-hidden">
                     <div className="p-6">
                         {activeTab === 'overview' && (
                             <div className="space-y-4">
