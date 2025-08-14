@@ -106,7 +106,7 @@ const InteractiveOrganogramCanvas: React.FC<InteractiveOrganogramCanvasProps> = 
     setExpandedCanvasNodes(newExpanded);
   };
 
-  const renderCanvasNode = (node: OrganogramNode, x: number, y: number, level: number = 0): JSX.Element => {
+  const renderCanvasNode = (node: OrganogramNode, x: number, y: number, level: number = 0): React.ReactElement => {
     const isExpanded = expandedCanvasNodes.has(node.id);
     const hasChildren = node.children && node.children.length > 0;
     const nodeWidth = 200;

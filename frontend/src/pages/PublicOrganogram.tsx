@@ -38,7 +38,7 @@ const PublicOrganogram: React.FC = () => {
 
   useEffect(() => {
     fetchSharedOrganogram();
-  }, [shareId]);
+  }, [shareId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchSharedOrganogram = async () => {
     try {
