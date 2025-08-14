@@ -931,29 +931,34 @@ const StaffProfile: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            {/* Header */}
-            <nav className="bg-white shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center h-16">
-                        <h1 className="text-xl font-semibold text-gray-900">
-                            Owu Palace HRMS - Staff Profile
-                        </h1>
-                        <div className="flex items-center gap-4">
+            {/* Mobile-First Header */}
+            <nav className="bg-white shadow-sm sticky top-0 z-40">
+                <div className="px-3 sm:px-6">
+                    <div className="flex items-center justify-between h-14 sm:h-16">
+                        {/* Mobile: Compact title */}
+                        <div className="flex items-center space-x-2 min-w-0 flex-1">
                             <button
                                 onClick={() => navigate('/staff')}
-                                className="bg-gray-500 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-600"
+                                className="bg-gray-600 text-white px-2 py-1 rounded text-xs font-medium hover:bg-gray-700 flex-shrink-0"
                             >
-                                Back to Staff List
+                                ← Back
                             </button>
+                            <h1 className="text-sm sm:text-lg font-semibold text-gray-900 truncate">
+                                Staff Profile
+                            </h1>
+                        </div>
+                        
+                        {/* Mobile: Action buttons */}
+                        <div className="flex items-center gap-1 sm:gap-3">
                             <button
                                 onClick={() => navigate('/dashboard')}
-                                className="bg-sky-500 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-sky-600"
+                                className="bg-sky-500 text-white px-2 py-1 sm:px-3 sm:py-2 rounded text-xs sm:text-sm font-medium hover:bg-sky-600"
                             >
                                 Dashboard
                             </button>
                             <button
                                 onClick={logout}
-                                className="bg-red-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-red-700"
+                                className="bg-red-600 text-white px-2 py-1 sm:px-3 sm:py-2 rounded text-xs sm:text-sm font-medium hover:bg-red-700"
                             >
                                 Logout
                             </button>
@@ -962,48 +967,66 @@ const StaffProfile: React.FC = () => {
                 </div>
             </nav>
 
-            <main className="max-w-7xl mx-auto py-4 px-4 sm:py-6 sm:px-6 lg:px-8">
-                {/* Staff Header */}
-                <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6">
-                    <div className="flex flex-col space-y-4">
-                        {/* Mobile-first layout */}
-                        <div className="flex items-center space-x-4">
-                            <div className="h-12 w-12 sm:h-16 sm:w-16 bg-sky-500 rounded-full flex items-center justify-center text-white text-lg sm:text-xl font-bold flex-shrink-0">
+            <main className="px-3 py-3 sm:px-6 sm:py-6 max-w-6xl mx-auto">
+                {/* Beautiful Mobile-First Staff Header */}
+                <div className="bg-white rounded-xl shadow-sm mb-4 overflow-hidden">
+                    {/* Header Background */}
+                    <div className="bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-6 sm:px-6">
+                        <div className="flex items-start space-x-4">
+                            <div className="h-16 w-16 sm:h-20 sm:w-20 bg-white bg-opacity-20 backdrop-blur-sm rounded-full flex items-center justify-center text-white text-xl sm:text-2xl font-bold flex-shrink-0 border-2 border-white border-opacity-30">
                                 {staff.fullName.split(' ').map(n => n[0]).join('').toUpperCase()}
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <h1 className="text-lg sm:text-2xl font-bold text-gray-900 truncate">{staff.fullName}</h1>
-                                <p className="text-sm sm:text-base text-gray-600 truncate">{staff.jobTitle} • {staff.department}</p>
-                                <p className="text-xs sm:text-sm text-gray-500">Employee ID: {staff.employeeId}</p>
+                            <div className="flex-1 min-w-0 pt-1">
+                                <h1 className="text-xl sm:text-2xl font-bold text-white leading-tight">
+                                    {staff.fullName}
+                                </h1>
+                                <p className="text-sky-100 text-sm sm:text-base mt-1 leading-relaxed">
+                                    {staff.jobTitle}
+                                </p>
+                                <p className="text-sky-100 text-sm sm:text-base">
+                                    {staff.department}
+                                </p>
+                                <p className="text-sky-200 text-xs sm:text-sm mt-2 font-mono">
+                                    ID: {staff.employeeId}
+                                </p>
                             </div>
                         </div>
-                        
-                        {/* Status badges and actions */}
-                        <div className="flex flex-wrap items-center gap-2">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(staff.isActive ? 'ACTIVE' : 'INACTIVE')}`}>
-                                {staff.isActive ? 'Active' : 'Inactive'}
-                            </span>
-                            {staff.isExternallyPaid && (
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                    External Payroll
+                    </div>
+                    
+                    {/* Status and Actions */}
+                    <div className="px-4 py-4 sm:px-6">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(staff.isActive ? 'ACTIVE' : 'INACTIVE')}`}>
+                                    <span className="w-2 h-2 rounded-full bg-current mr-2"></span>
+                                    {staff.isActive ? 'Active' : 'Inactive'}
                                 </span>
-                            )}
+                                {staff.isExternallyPaid && (
+                                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">
+                                        <span className="w-2 h-2 rounded-full bg-current mr-2"></span>
+                                        External Payroll
+                                    </span>
+                                )}
+                            </div>
                             {canEditStaff && (
                                 <button
                                     onClick={() => setShowEditModal(true)}
-                                    className="bg-sky-500 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-sky-600 flex items-center gap-1"
+                                    className="bg-sky-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-sky-600 flex items-center justify-center gap-2 transition-colors w-full sm:w-auto"
                                 >
-                                    ✏️ Edit Staff
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    Edit Staff
                                 </button>
                             )}
                         </div>
                     </div>
                 </div>
 
-                {/* Tabs */}
-                <div className="bg-white rounded-lg shadow-sm mb-6">
-                    <div className="border-b border-gray-200">
-                        <nav className="flex overflow-x-auto px-4 sm:px-6">
+                {/* Beautiful Mobile-First Tabs */}
+                <div className="bg-white rounded-xl shadow-sm mb-4 overflow-hidden">
+                    <div className="px-1 py-1">
+                        <nav className="flex overflow-x-auto scrollbar-hide">
                             {[
                                 { key: 'overview', label: 'Overview', icon: '👤', show: true },
                                 { key: 'salary', label: 'Salary', icon: '💰', show: canViewSalary },
@@ -1014,92 +1037,113 @@ const StaffProfile: React.FC = () => {
                                 <button
                                     key={tab.key}
                                     onClick={() => setActiveTab(tab.key as any)}
-                                    className={`py-3 px-2 sm:px-4 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-1 sm:gap-2 whitespace-nowrap ${
+                                    className={`flex-1 min-w-0 py-3 px-2 mx-1 rounded-lg font-medium text-xs transition-all duration-200 flex flex-col items-center gap-1 ${
                                         activeTab === tab.key
-                                            ? 'border-sky-500 text-sky-600'
-                                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                            ? 'bg-sky-500 text-white shadow-md'
+                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800'
                                     }`}
                                 >
-                                    <span className="text-sm sm:text-base">{tab.icon}</span>
-                                    <span className="hidden sm:inline">{tab.label}</span>
-                                    <span className="sm:hidden text-xs">{tab.label}</span>
+                                    <span className="text-base">{tab.icon}</span>
+                                    <span className="truncate leading-tight">{tab.label}</span>
                                 </button>
                             ))}
                         </nav>
                     </div>
+                </div>
 
                     <div className="p-6">
                         {activeTab === 'overview' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                            <div className="space-y-4">
                                 {/* Personal Information */}
-                                <div className="bg-gray-50 rounded-lg p-4">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h3>
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Date of Birth:</span>
-                                            <span className="font-medium">{formatDate(staff.dateOfBirth)}</span>
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 border-b border-gray-100">
+                                        <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                                            <span className="text-blue-500">👤</span>
+                                            Personal Information
+                                        </h3>
+                                    </div>
+                                    <div className="p-4 space-y-4">
+                                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                            <span className="text-sm text-gray-600 font-medium">Date of Birth</span>
+                                            <span className="text-sm font-semibold text-gray-900">{formatDate(staff.dateOfBirth)}</span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Gender:</span>
-                                            <span className="font-medium">{staff.gender}</span>
+                                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                            <span className="text-sm text-gray-600 font-medium">Gender</span>
+                                            <span className="text-sm font-semibold text-gray-900">{staff.gender}</span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Marital Status:</span>
-                                            <span className="font-medium">{staff.maritalStatus}</span>
+                                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                            <span className="text-sm text-gray-600 font-medium">Marital Status</span>
+                                            <span className="text-sm font-semibold text-gray-900">{staff.maritalStatus}</span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Nationality:</span>
-                                            <span className="font-medium">{staff.nationality || 'N/A'}</span>
+                                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                            <span className="text-sm text-gray-600 font-medium">Nationality</span>
+                                            <span className="text-sm font-semibold text-gray-900">{staff.nationality || 'N/A'}</span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Address:</span>
-                                            <span className="font-medium text-right">{staff.address || 'N/A'}</span>
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-sm text-gray-600 font-medium">Address</span>
+                                            <span className="text-sm font-semibold text-gray-900 leading-relaxed">{staff.address || 'N/A'}</span>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Contact Information */}
-                                <div className="bg-gray-50 rounded-lg p-4">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Personal Email:</span>
-                                            <span className="font-medium">{staff.personalEmail || 'N/A'}</span>
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-4 py-3 border-b border-gray-100">
+                                        <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                                            <span className="text-green-500">📞</span>
+                                            Contact Information
+                                        </h3>
+                                    </div>
+                                    <div className="p-4 space-y-4">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-sm text-gray-600 font-medium">Personal Email</span>
+                                            <span className="text-sm font-semibold text-gray-900 break-all">{staff.personalEmail || 'N/A'}</span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Work Email:</span>
-                                            <span className="font-medium">{staff.workEmail || 'N/A'}</span>
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-sm text-gray-600 font-medium">Work Email</span>
+                                            <span className="text-sm font-semibold text-gray-900 break-all">{staff.workEmail || 'N/A'}</span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Phone Numbers:</span>
-                                            <span className="font-medium">{staff.phoneNumbers.join(', ')}</span>
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-sm text-gray-600 font-medium">Phone Numbers</span>
+                                            <div className="space-y-1">
+                                                {staff.phoneNumbers.map((phone, index) => (
+                                                    <span key={index} className="text-sm font-semibold text-gray-900 block font-mono">
+                                                        {phone}
+                                                    </span>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Employment Information */}
-                                <div className="bg-gray-50 rounded-lg p-4">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Employment Information</h3>
-                                    <div className="space-y-3">
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Date of Joining:</span>
-                                            <span className="font-medium">{formatDate(staff.dateOfJoining)}</span>
+                                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                                    <div className="bg-gradient-to-r from-purple-50 to-violet-50 px-4 py-3 border-b border-gray-100">
+                                        <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                                            <span className="text-purple-500">💼</span>
+                                            Employment Information
+                                        </h3>
+                                    </div>
+                                    <div className="p-4 space-y-4">
+                                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                            <span className="text-sm text-gray-600 font-medium">Date of Joining</span>
+                                            <span className="text-sm font-semibold text-gray-900">{formatDate(staff.dateOfJoining)}</span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Employment Type:</span>
-                                            <span className="font-medium">{staff.employmentType}</span>
+                                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                            <span className="text-sm text-gray-600 font-medium">Employment Type</span>
+                                            <span className="text-sm font-semibold text-gray-900">{staff.employmentType}</span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Work Location:</span>
-                                            <span className="font-medium">{staff.workLocation || 'N/A'}</span>
+                                        <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
+                                            <span className="text-sm text-gray-600 font-medium">Work Location</span>
+                                            <span className="text-sm font-semibold text-gray-900">{staff.workLocation || 'N/A'}</span>
                                         </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-gray-600">Reporting Manager:</span>
-                                            <span className="font-medium">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-sm text-gray-600 font-medium">Reporting Manager</span>
+                                            <span className="text-sm font-semibold text-gray-900">
                                                 {staff.reportingManager ? (
                                                     <button
                                                         onClick={() => navigate(`/staff/${staff.reportingManager!.id}`)}
-                                                        className="text-sky-600 hover:text-sky-800 underline"
+                                                        className="text-sky-600 hover:text-sky-800 underline break-all"
                                                     >
                                                         {staff.reportingManager.fullName} ({staff.reportingManager.employeeId})
                                                     </button>
