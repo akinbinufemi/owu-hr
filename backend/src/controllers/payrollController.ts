@@ -3,7 +3,6 @@ import Joi from 'joi';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import prisma from '../config/database';
 import { AuthRequest } from '../middleware/auth';
-import puppeteer from 'puppeteer';
 import axios from 'axios';
 
 // Helper function to convert numbers to words (simplified version)
@@ -849,21 +848,19 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
           margin-bottom: 5px;
         }
         
-        .payroll-table {
+        .table-container {
           width: 100%;
-          border-collapse: collapse;
+          overflow-x: auto;
           margin-bottom: 20px;
           box-shadow: 0 0 10px rgba(0,0,0,0.1);
-          overflow-x: auto;
-          display: block;
-          white-space: nowrap;
+          border-radius: 8px;
+          background: white;
         }
         
-        .payroll-table thead,
-        .payroll-table tbody,
-        .payroll-table tr {
-          display: table;
+        .payroll-table {
           width: 100%;
+          min-width: 800px;
+          border-collapse: collapse;
           table-layout: fixed;
         }
         
@@ -1133,6 +1130,56 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
           margin: 0.5in;
           size: A4 landscape;
         }
+        
+        /* Enhanced mobile responsiveness */
+        @media (max-width: 1024px) {
+          .payroll-table {
+            display: block;
+            overflow-x: auto;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+          }
+          
+          .payroll-table table {
+            min-width: 800px;
+          }
+        }
+        
+        /* Improved table layout for better alignment */
+        .payroll-table tbody tr:nth-child(even) {
+          background-color: #f8f9fa;
+        }
+        
+        .payroll-table tbody tr:hover {
+          background-color: #e3f2fd;
+        }
+        
+        /* Better text wrapping */
+        .name-col, .designation-col, .account-col, .remark-col {
+          word-wrap: break-word;
+          word-break: break-word;
+          hyphens: auto;
+          line-height: 1.3;
+        }
+        
+        /* Improved print layout */
+        @media print {
+          .payroll-table {
+            page-break-inside: avoid;
+          }
+          
+          .payroll-table thead {
+            display: table-header-group;
+          }
+          
+          .payroll-table tbody tr {
+            page-break-inside: avoid;
+          }
+          
+          .total-row {
+            page-break-before: avoid;
+          }
+        }
       </style>
     </head>
     <body>
@@ -1142,7 +1189,8 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
         <h1>Olowu Palace Salary Schedule for the Month of ${monthNames[payrollSchedule.month]} ${payrollSchedule.year}</h1>
       </div>
       
-      <table class="payroll-table">
+      <div class="table-container">
+        <table class="payroll-table">
         <thead>
           <tr>
             <th class="sn-col">SN</th>
@@ -1186,12 +1234,13 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
             `;
           }).join('')}
           <tr class="total-row">
-            <td colspan="3" style="text-align: center;">Total:</td>
-            <td class="salary-col">₦${totalAmount.toLocaleString()}</td>
+            <td colspan="3" style="text-align: center; font-weight: bold;">Total:</td>
+            <td style="text-align: right !important; font-weight: bold;">₦${totalAmount.toLocaleString()}</td>
             <td colspan="2"></td>
           </tr>
         </tbody>
-      </table>
+        </table>
+      </div>
       
       <div class="footer">
         <div class="amount-words">
@@ -1214,16 +1263,42 @@ const generatePayrollHTML = (payrollSchedule: any, staffData: any[]) => {
           const printButton = document.getElementById('printButton');
           if (printButton) {
             printButton.addEventListener('click', function() {
-              // Ensure the page is fully loaded before printing
-              if (document.readyState === 'complete') {
+              // Add a small delay to ensure styles are applied
+              setTimeout(function() {
+                // Set print-specific styles
+                document.body.style.margin = '0';
+                document.body.style.padding = '15px';
+                
+                // Trigger print dialog
                 window.print();
-              } else {
-                window.addEventListener('load', function() {
-                  window.print();
-                });
-              }
+                
+                // Reset styles after print
+                setTimeout(function() {
+                  document.body.style.margin = '';
+                  document.body.style.padding = '20px';
+                }, 100);
+              }, 100);
             });
           }
+          
+          // Handle print events
+          window.addEventListener('beforeprint', function() {
+            console.log('Preparing for print...');
+            // Ensure table fits on page
+            const table = document.querySelector('.payroll-table');
+            if (table) {
+              table.style.fontSize = '10px';
+            }
+          });
+          
+          window.addEventListener('afterprint', function() {
+            console.log('Print dialog closed');
+            // Reset table styles
+            const table = document.querySelector('.payroll-table');
+            if (table) {
+              table.style.fontSize = '';
+            }
+          });
         });
       </script>
     </body>
