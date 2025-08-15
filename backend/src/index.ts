@@ -16,6 +16,7 @@ import reportsRoutes from './routes/reports';
 import filesRoutes from './routes/files';
 import adminRoutes from './routes/admin';
 import backupRoutes from './routes/backup';
+import { schedulePasswordExpiryTasks } from './tasks/passwordExpiryTask';
 
 // Load environment variables
 dotenv.config();
@@ -131,4 +132,7 @@ app.use('*', (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  
+  // Initialize password expiry tasks
+  schedulePasswordExpiryTasks();
 });

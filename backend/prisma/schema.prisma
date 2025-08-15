@@ -19,6 +19,9 @@ model Admin {
   permissions String[] @default([])
   isActive  Boolean  @default(true)
   lastLogin DateTime?
+  passwordChangedAt DateTime @default(now())
+  passwordExpiresAt DateTime?
+  mustChangePassword Boolean @default(false)
   createdBy String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

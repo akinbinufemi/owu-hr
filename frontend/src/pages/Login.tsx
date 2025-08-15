@@ -165,16 +165,7 @@ const Login: React.FC = () => {
             </button>
           </div>
 
-          <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-            <a 
-              href="/register" 
-              style={{ fontSize: '0.875rem', color: '#0ea5e9', textDecoration: 'none' }}
-              onMouseOver={(e) => e.currentTarget.style.textDecoration = 'underline'}
-              onMouseOut={(e) => e.currentTarget.style.textDecoration = 'none'}
-            >
-              Need to create an admin account? Register here
-            </a>
-          </div>
+          {/* Registration link removed for security - only super admins can create new admin accounts */}
 
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '0.875rem', color: '#4b5563', backgroundColor: '#f3f4f6', padding: '0.75rem', borderRadius: '0.375rem' }}>

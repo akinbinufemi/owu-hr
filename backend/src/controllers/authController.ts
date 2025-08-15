@@ -4,6 +4,7 @@ import Joi from 'joi';
 import prisma from '../config/database';
 import { generateToken, AuthRequest } from '../middleware/auth';
 import { validatePasswordStrength, isCommonWeakPassword } from '../utils/passwordValidation';
+import { getDaysUntilExpiry, isPasswordExpired } from '../utils/passwordExpiry';
 
 // Validation schemas
 const loginSchema = Joi.object({
@@ -45,7 +46,9 @@ export const login = async (req: Request, res: Response) => {
         fullName: true,
         role: true,
         permissions: true,
-        isActive: true
+        isActive: true,
+        passwordExpiresAt: true,
+        mustChangePassword: true
       }
     });
 
@@ -84,6 +87,29 @@ export const login = async (req: Request, res: Response) => {
       });
     }
 
+    // Check if password has expired
+    const now = new Date();
+    const isPasswordExpired = admin.passwordExpiresAt && admin.passwordExpiresAt < now;
+    const mustChangePassword = admin.mustChangePassword || isPasswordExpired;
+
+    if (mustChangePassword) {
+      return res.status(200).json({
+        success: true,
+        data: {
+          requiresPasswordChange: true,
+          message: isPasswordExpired 
+            ? 'Your password has expired. Please change your password to continue.' 
+            : 'You must change your password before continuing.',
+          admin: {
+            id: admin.id,
+            email: admin.email,
+            fullName: admin.fullName
+          }
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
     // Update last login
     await prisma.admin.update({
       where: { id: admin.id },
@@ -92,6 +118,11 @@ export const login = async (req: Request, res: Response) => {
 
     // Generate JWT token
     const token = generateToken(admin.id);
+
+    // Calculate days until password expires
+    const daysUntilExpiry = admin.passwordExpiresAt 
+      ? Math.ceil((admin.passwordExpiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      : null;
 
     // Return success response
     res.json({
@@ -104,6 +135,10 @@ export const login = async (req: Request, res: Response) => {
           fullName: admin.fullName,
           role: admin.role,
           permissions: admin.permissions
+        },
+        passwordInfo: {
+          daysUntilExpiry,
+          showExpiryWarning: daysUntilExpiry !== null && daysUntilExpiry <= 7
         }
       },
       timestamp: new Date().toISOString()
@@ -197,106 +232,16 @@ export const refreshToken = async (req: AuthRequest, res: Response) => {
 };
 
 export const register = async (req: Request, res: Response) => {
-  try {
-    // Validate request body
-    const { error, value } = registerSchema.validate(req.body);
-    if (error) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: error.details[0].message,
-          details: error.details
-        },
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    const { email, password, fullName } = value;
-
-    // Check if admin already exists
-    const existingAdmin = await prisma.admin.findUnique({
-      where: { email }
-    });
-
-    if (existingAdmin) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'EMAIL_ALREADY_EXISTS',
-          message: 'An admin with this email already exists'
-        },
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    // Validate password strength
-    const passwordValidation = validatePasswordStrength(password);
-    if (!passwordValidation.isValid) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'WEAK_PASSWORD',
-          message: 'Password does not meet security requirements',
-          details: passwordValidation.errors
-        },
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    // Check for common weak passwords
-    if (isCommonWeakPassword(password)) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'WEAK_PASSWORD',
-          message: 'Please choose a stronger, less common password'
-        },
-        timestamp: new Date().toISOString()
-      });
-    }
-
-    // Hash password
-    const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-    // Create admin
-    const newAdmin = await prisma.admin.create({
-      data: {
-        email,
-        password: hashedPassword,
-        fullName,
-        isActive: true
-      },
-      select: {
-        id: true,
-        email: true,
-        fullName: true,
-        isActive: true,
-        createdAt: true
-      }
-    });
-
-    res.status(201).json({
-      success: true,
-      data: {
-        admin: newAdmin,
-        message: 'Admin account created successfully'
-      },
-      timestamp: new Date().toISOString()
-    });
-
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Registration failed'
-      },
-      timestamp: new Date().toISOString()
-    });
-  }
+  // SECURITY: Public registration disabled for production security
+  // Only SUPER_ADMIN users can create new admin accounts through the admin panel
+  return res.status(403).json({
+    success: false,
+    error: {
+      code: 'REGISTRATION_DISABLED',
+      message: 'Public admin registration is disabled for security reasons. Contact your system administrator to create new admin accounts.'
+    },
+    timestamp: new Date().toISOString()
+  });
 };
 
 export const changePassword = async (req: AuthRequest, res: Response) => {
@@ -385,10 +330,18 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
     const saltRounds = 12;
     const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
 
-    // Update password
+    // Update password and reset expiry
+    const now = new Date();
+    const passwordExpiresAt = new Date(now.getTime() + (90 * 24 * 60 * 60 * 1000)); // 90 days from now
+
     await prisma.admin.update({
       where: { id: req.admin!.id },
-      data: { password: hashedNewPassword }
+      data: { 
+        password: hashedNewPassword,
+        passwordChangedAt: now,
+        passwordExpiresAt: passwordExpiresAt,
+        mustChangePassword: false
+      }
     });
 
     res.json({
@@ -406,6 +359,57 @@ export const changePassword = async (req: AuthRequest, res: Response) => {
       error: {
         code: 'INTERNAL_SERVER_ERROR',
         message: 'Password change failed'
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+export const getPasswordInfo = async (req: AuthRequest, res: Response) => {
+  try {
+    const admin = await prisma.admin.findUnique({
+      where: { id: req.admin!.id },
+      select: {
+        passwordExpiresAt: true,
+        passwordChangedAt: true,
+        mustChangePassword: true
+      }
+    });
+
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'ADMIN_NOT_FOUND',
+          message: 'Admin not found'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const daysUntilExpiry = getDaysUntilExpiry(admin.passwordExpiresAt);
+    const expired = isPasswordExpired(admin.passwordExpiresAt);
+
+    res.json({
+      success: true,
+      data: {
+        passwordChangedAt: admin.passwordChangedAt,
+        passwordExpiresAt: admin.passwordExpiresAt,
+        daysUntilExpiry,
+        isExpired: expired,
+        mustChangePassword: admin.mustChangePassword,
+        showExpiryWarning: daysUntilExpiry !== null && daysUntilExpiry <= 7
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Get password info error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to get password information'
       },
       timestamp: new Date().toISOString()
     });

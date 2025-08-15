@@ -169,6 +169,10 @@ export const createUser = async (req: AuthRequest, res: Response) => {
     const saltRounds = 12;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
+    // Set password expiry (90 days from now)
+    const now = new Date();
+    const passwordExpiresAt = new Date(now.getTime() + (90 * 24 * 60 * 60 * 1000));
+
     // Create user
     const newUser = await prisma.admin.create({
       data: {
@@ -177,7 +181,10 @@ export const createUser = async (req: AuthRequest, res: Response) => {
         password: hashedPassword,
         role: role as any,
         permissions,
-        createdBy: req.admin!.id
+        createdBy: req.admin!.id,
+        passwordChangedAt: now,
+        passwordExpiresAt: passwordExpiresAt,
+        mustChangePassword: true // Force new users to change password on first login
       },
       select: {
         id: true,
