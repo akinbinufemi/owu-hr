@@ -16,7 +16,7 @@ Emergency Token: owu-palace-emergency-2025-secure-token-change-this
 **Step 2: Check Database Status**
 ```bash
 curl -H "X-Emergency-Token: owu-palace-emergency-2025-secure-token-change-this" \
-     https://owu-palace-backend.onrender.com/api/system/db-status
+     https://owu-hr.onrender.com/api/system/db-status
 ```
 
 **Step 3: Emergency Reseed (if needed)**
@@ -24,7 +24,7 @@ curl -H "X-Emergency-Token: owu-palace-emergency-2025-secure-token-change-this" 
 curl -X POST \
      -H "X-Emergency-Token: owu-palace-emergency-2025-secure-token-change-this" \
      -H "Content-Type: application/json" \
-     https://owu-palace-backend.onrender.com/api/system/emergency-reseed
+     https://owu-hr.onrender.com/api/system/emergency-reseed
 ```
 
 ### Method 2: Using SUPER_ADMIN Authentication
@@ -36,13 +36,13 @@ If you have access to a SUPER_ADMIN account:
 curl -X POST \
      -H "Content-Type: application/json" \
      -d '{"email":"admin@owupalace.com","password":"admin123"}' \
-     https://owu-palace-backend.onrender.com/api/auth/login
+     https://owu-hr.onrender.com/api/auth/login
 ```
 
 **Step 2: Use JWT token for system operations**
 ```bash
 curl -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-     https://owu-palace-backend.onrender.com/api/system/db-status
+     https://owu-hr.onrender.com/api/system/db-status
 ```
 
 ### Method 3: Direct Server Access (Most Secure)
