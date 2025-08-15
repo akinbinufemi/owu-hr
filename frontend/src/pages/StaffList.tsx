@@ -942,6 +942,7 @@ interface Staff {
   id: string;
   employeeId: string;
   fullName: string;
+  dateOfBirth?: string;
   jobTitle: string;
   department: string;
   workEmail: string;
