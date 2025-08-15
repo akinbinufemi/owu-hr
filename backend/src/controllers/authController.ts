@@ -134,7 +134,8 @@ export const login = async (req: Request, res: Response) => {
           email: admin.email,
           fullName: admin.fullName,
           role: admin.role,
-          permissions: admin.permissions
+          permissions: admin.permissions,
+          isActive: admin.isActive
         },
         passwordInfo: {
           daysUntilExpiry,

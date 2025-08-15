@@ -9,6 +9,7 @@ export interface AuthRequest extends Request {
     fullName: string;
     role: string;
     permissions: string[];
+    isActive: boolean;
   };
 }
 
@@ -66,7 +67,14 @@ export const authenticateToken = async (
       });
     }
 
-    req.admin = admin;
+    req.admin = {
+      id: admin.id,
+      email: admin.email,
+      fullName: admin.fullName,
+      role: admin.role,
+      permissions: admin.permissions,
+      isActive: admin.isActive
+    };
     next();
   } catch (error) {
     console.error('Authentication error:', error);
