@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   HomeIcon, 
   UsersIcon, 
@@ -8,7 +9,8 @@ import {
   ChartBarIcon,
   ExclamationTriangleIcon,
   DocumentChartBarIcon,
-  Cog6ToothIcon
+  Cog6ToothIcon,
+  CircleStackIcon
 } from '@heroicons/react/24/outline';
 
 interface SidebarProps {
@@ -16,7 +18,14 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-const navigation = [
+interface NavigationItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  requiresSuperAdmin?: boolean;
+}
+
+const navigation: NavigationItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Staff Management', href: '/staff', icon: UsersIcon },
   { name: 'Payroll', href: '/payroll', icon: CurrencyDollarIcon },
@@ -24,6 +33,7 @@ const navigation = [
   { name: 'Organogram', href: '/organogram', icon: ChartBarIcon },
   { name: 'Issues', href: '/issues', icon: ExclamationTriangleIcon },
   { name: 'Reports', href: '/reports', icon: DocumentChartBarIcon },
+  { name: 'Backup & Restore', href: '/backup', icon: CircleStackIcon, requiresSuperAdmin: true },
   { name: 'Settings', href: '/settings', icon: Cog6ToothIcon },
 ];
 
@@ -73,6 +83,16 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 };
 
 const SidebarContent: React.FC = () => {
+  const { admin } = useAuth();
+
+  // Filter navigation items based on permissions
+  const filteredNavigation = navigation.filter(item => {
+    if (item.requiresSuperAdmin) {
+      return admin?.role === 'SUPER_ADMIN';
+    }
+    return true;
+  });
+
   return (
     <div className="flex flex-col h-0 flex-1 bg-white border-r border-gray-200">
       {/* Logo */}
@@ -102,7 +122,7 @@ const SidebarContent: React.FC = () => {
       {/* Navigation */}
       <div className="flex-1 flex flex-col overflow-y-auto">
         <nav className="flex-1 px-2 py-4 space-y-1">
-          {navigation.map((item) => (
+          {filteredNavigation.map((item) => (
             <NavLink
               key={item.name}
               to={item.href}

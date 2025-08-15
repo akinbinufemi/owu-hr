@@ -16,6 +16,7 @@ import FileManagement from './pages/FileManagement';
 import Settings from './pages/Settings';
 import StaffProfile from './pages/StaffProfile';
 import PublicOrganogram from './pages/PublicOrganogram';
+import BackupManagement from './pages/BackupManagement';
 
 function App() {
   return (
@@ -108,6 +109,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Settings />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/backup"
+                element={
+                  <ProtectedRoute>
+                    <BackupManagement />
                   </ProtectedRoute>
                 }
               />
