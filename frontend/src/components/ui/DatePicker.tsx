@@ -1,5 +1,4 @@
-import React, { useEffect, useRef } from 'react';
-import { Datepicker } from 'flowbite-datepicker';
+import React, { useState, useRef, useEffect } from 'react';
 
 interface DatePickerProps {
   value: string;
@@ -24,8 +23,23 @@ const DatePicker: React.FC<DatePickerProps> = ({
   maxDate,
   type = 'default'
 }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const datepickerRef = useRef<Datepicker | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(
+    value ? new Date(value) : null
+  );
+  const [currentMonth, setCurrentMonth] = useState(
+    selectedDate ? selectedDate.getMonth() : new Date().getMonth()
+  );
+  const [currentYear, setCurrentYear] = useState(
+    selectedDate ? selectedDate.getFullYear() : new Date().getFullYear()
+  );
+  
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
 
   // Calculate date constraints based on type
   const getDateConstraints = () => {
@@ -56,68 +70,37 @@ const DatePicker: React.FC<DatePickerProps> = ({
     }
   };
 
+  const constraints = getDateConstraints();
+
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
+
   useEffect(() => {
-    if (inputRef.current && !datepickerRef.current) {
-      const constraints = getDateConstraints();
-      
-      datepickerRef.current = new Datepicker(inputRef.current, {
-        autohide: true,
-        format: 'mm/dd/yyyy',
-        todayBtn: true,
-        clearBtn: true,
-        todayBtnMode: 1,
-        minDate: constraints.minDate,
-        maxDate: constraints.maxDate,
-        weekStart: 0, // Sunday
-        daysOfWeekDisabled: [],
-        daysOfWeekHighlighted: [],
-        defaultViewDate: value ? new Date(value) : new Date(),
-        title: placeholder,
-        showOnFocus: true,
-        showOnClick: true,
-        orientation: 'auto',
-        container: 'body'
-      });
-
-      // Set initial value if provided
-      if (value) {
-        const date = new Date(value);
-        datepickerRef.current.setDate(date);
-      }
-
-      // Listen for date changes
-      inputRef.current.addEventListener('changeDate', (e: any) => {
-        const selectedDate = e.detail.date;
-        if (selectedDate) {
-          const formattedDate = selectedDate.toISOString().split('T')[0];
-          onChange(formattedDate);
-        } else {
-          onChange('');
-        }
-      });
-    }
-
-    return () => {
-      if (datepickerRef.current) {
-        datepickerRef.current.destroy();
-        datepickerRef.current = null;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
       }
     };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Update datepicker when value changes externally
-  useEffect(() => {
-    if (datepickerRef.current && value) {
-      const date = new Date(value);
-      datepickerRef.current.setDate(date);
-    } else if (datepickerRef.current && !value) {
-      datepickerRef.current.setDate({ clear: true });
-    }
-  }, [value]);
+  const isDateDisabled = (date: Date) => {
+    return date < constraints.minDate || date > constraints.maxDate;
+  };
 
-  const formatDisplayValue = (dateString: string) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
+  const handleDateSelect = (day: number) => {
+    const newDate = new Date(currentYear, currentMonth, day);
+    if (isDateDisabled(newDate)) return;
+    
+    setSelectedDate(newDate);
+    onChange(newDate.toISOString().split('T')[0]);
+    setIsOpen(false);
+  };
+
+  const formatDisplayDate = (date: Date | null) => {
+    if (!date) return '';
     return date.toLocaleDateString('en-US', {
       month: '2-digit',
       day: '2-digit',
@@ -125,8 +108,45 @@ const DatePicker: React.FC<DatePickerProps> = ({
     });
   };
 
+  const generateYearOptions = () => {
+    const minYear = constraints.minDate.getFullYear();
+    const maxYear = constraints.maxDate.getFullYear();
+    const years = [];
+    for (let year = minYear; year <= maxYear; year++) {
+      years.push(year);
+    }
+    return years.reverse(); // Most recent years first
+  };
+
+  const canNavigateToMonth = (month: number, year: number) => {
+    const firstDayOfMonth = new Date(year, month, 1);
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+    return !(lastDayOfMonth < constraints.minDate || firstDayOfMonth > constraints.maxDate);
+  };
+
+  const navigateToPreviousMonth = () => {
+    const newMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const newYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+    
+    if (canNavigateToMonth(newMonth, newYear)) {
+      setCurrentMonth(newMonth);
+      setCurrentYear(newYear);
+    }
+  };
+
+  const navigateToNextMonth = () => {
+    const newMonth = currentMonth === 11 ? 0 : currentMonth + 1;
+    const newYear = currentMonth === 11 ? currentYear + 1 : currentYear;
+    
+    if (canNavigateToMonth(newMonth, newYear)) {
+      setCurrentMonth(newMonth);
+      setCurrentYear(newYear);
+    }
+  };
+
   return (
-    <div className={`relative max-w-sm ${className}`}>
+    <div className={`relative max-w-sm ${className}`} ref={dropdownRef}>
+      {/* Flowbite-style input with calendar icon */}
       <div className="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none">
         <svg 
           className="w-4 h-4 text-gray-500 dark:text-gray-400" 
@@ -139,15 +159,173 @@ const DatePicker: React.FC<DatePickerProps> = ({
         </svg>
       </div>
       <input
-        ref={inputRef}
         name={name}
         type="text"
-        value={formatDisplayValue(value)}
+        value={formatDisplayDate(selectedDate)}
+        onClick={() => setIsOpen(!isOpen)}
         placeholder={placeholder}
         required={required}
         readOnly
         className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full ps-10 p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 cursor-pointer"
       />
+      
+      {isOpen && (
+        <div className="absolute z-50 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg w-80 p-4">
+          {/* Header with month/year selectors */}
+          <div className="flex items-center justify-between mb-4">
+            <button
+              type="button"
+              onClick={navigateToPreviousMonth}
+              className="p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            
+            <div className="flex items-center space-x-1">
+              <select
+                value={currentMonth}
+                onChange={(e) => {
+                  const newMonth = parseInt(e.target.value);
+                  if (canNavigateToMonth(newMonth, currentYear)) {
+                    setCurrentMonth(newMonth);
+                  }
+                }}
+                className="text-sm font-semibold text-gray-900 bg-transparent border-0 focus:outline-none focus:ring-0"
+              >
+                {months.map((month, index) => (
+                  <option 
+                    key={index} 
+                    value={index}
+                    disabled={!canNavigateToMonth(index, currentYear)}
+                  >
+                    {month}
+                  </option>
+                ))}
+              </select>
+              
+              <select
+                value={currentYear}
+                onChange={(e) => {
+                  const newYear = parseInt(e.target.value);
+                  setCurrentYear(newYear);
+                  if (!canNavigateToMonth(currentMonth, newYear)) {
+                    // Find a valid month for this year
+                    for (let month = 0; month < 12; month++) {
+                      if (canNavigateToMonth(month, newYear)) {
+                        setCurrentMonth(month);
+                        break;
+                      }
+                    }
+                  }
+                }}
+                className="text-sm font-semibold text-gray-900 bg-transparent border-0 focus:outline-none focus:ring-0"
+              >
+                {generateYearOptions().map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <button
+              type="button"
+              onClick={navigateToNextMonth}
+              className="p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+          
+          {/* Calendar grid */}
+          <div>
+            {/* Day headers */}
+            <div className="grid grid-cols-7 mb-1">
+              {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
+                <div key={day} className="h-6 text-center text-sm font-medium text-gray-500">
+                  {day}
+                </div>
+              ))}
+            </div>
+            
+            {/* Calendar days */}
+            <div className="grid grid-cols-7 gap-1">
+              {/* Empty cells for days before month starts */}
+              {Array.from({ length: firstDayOfMonth }, (_, i) => (
+                <div key={`empty-${i}`} className="h-8"></div>
+              ))}
+              
+              {/* Days of the month */}
+              {Array.from({ length: daysInMonth }, (_, i) => {
+                const day = i + 1;
+                const date = new Date(currentYear, currentMonth, day);
+                const isSelected = selectedDate && 
+                  selectedDate.getDate() === day &&
+                  selectedDate.getMonth() === currentMonth &&
+                  selectedDate.getFullYear() === currentYear;
+                const isDisabled = isDateDisabled(date);
+                const isToday = new Date().toDateString() === date.toDateString();
+                
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => handleDateSelect(day)}
+                    disabled={isDisabled}
+                    className={`h-8 w-8 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      isSelected
+                        ? 'bg-blue-700 text-white hover:bg-blue-800'
+                        : isToday
+                        ? 'bg-blue-700 text-white hover:bg-blue-800'
+                        : isDisabled
+                        ? 'text-gray-300 cursor-not-allowed'
+                        : 'text-gray-900 hover:bg-gray-100'
+                    }`}
+                  >
+                    {day}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          
+          {/* Footer */}
+          <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={() => {
+                const today = new Date();
+                if (!isDateDisabled(today)) {
+                  setSelectedDate(today);
+                  setCurrentMonth(today.getMonth());
+                  setCurrentYear(today.getFullYear());
+                  onChange(today.toISOString().split('T')[0]);
+                  setIsOpen(false);
+                }
+              }}
+              className="text-sm text-blue-600 hover:text-blue-800 focus:outline-none font-medium"
+            >
+              Today
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedDate(null);
+                onChange('');
+                setIsOpen(false);
+              }}
+              className="text-sm text-gray-600 hover:text-gray-800 focus:outline-none font-medium"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
