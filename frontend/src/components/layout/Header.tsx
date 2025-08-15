@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { BellIcon, Bars3Icon } from '@heroicons/react/24/outline';
 
@@ -8,6 +9,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
   const { admin, logout } = useAuth();
+  const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -124,7 +126,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick }) => {
                 <button
                   onClick={() => {
                     setDropdownOpen(false);
-                    // Navigate to profile settings
+                    navigate('/profile');
                   }}
                   className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 >

@@ -14,6 +14,7 @@ import IssuesManagement from './pages/IssuesManagement';
 import Reports from './pages/Reports';
 import FileManagement from './pages/FileManagement';
 import Settings from './pages/Settings';
+import ProfileSettings from './pages/ProfileSettings';
 import StaffProfile from './pages/StaffProfile';
 import PublicOrganogram from './pages/PublicOrganogram';
 import BackupManagement from './pages/BackupManagement';
@@ -109,6 +110,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <Settings />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <ProfileSettings />
                   </ProtectedRoute>
                 }
               />

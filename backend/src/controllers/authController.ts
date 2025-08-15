@@ -415,3 +415,131 @@ export const getPasswordInfo = async (req: AuthRequest, res: Response) => {
     });
   }
 };
+
+export const updateProfile = async (req: AuthRequest, res: Response) => {
+  try {
+    const updateProfileSchema = Joi.object({
+      fullName: Joi.string().min(2).max(100).required(),
+      email: Joi.string().email().required(),
+    });
+
+    const { error, value } = updateProfileSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: error.details[0].message,
+          details: error.details
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const { fullName, email } = value;
+
+    // Check if email is already taken by another admin
+    const existingAdmin = await prisma.admin.findFirst({
+      where: {
+        email,
+        NOT: {
+          id: req.admin!.id
+        }
+      }
+    });
+
+    if (existingAdmin) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'EMAIL_ALREADY_EXISTS',
+          message: 'Email address is already in use by another admin'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Update admin profile
+    const updatedAdmin = await prisma.admin.update({
+      where: { id: req.admin!.id },
+      data: { 
+        fullName,
+        email
+      },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        permissions: true,
+        isActive: true,
+        lastLogin: true
+      }
+    });
+
+    res.json({
+      success: true,
+      data: updatedAdmin,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Profile update failed'
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+};
+
+export const getPasswordExpiry = async (req: AuthRequest, res: Response) => {
+  try {
+    const admin = await prisma.admin.findUnique({
+      where: { id: req.admin!.id },
+      select: {
+        passwordExpiresAt: true,
+        mustChangePassword: true
+      }
+    });
+
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        error: {
+          code: 'ADMIN_NOT_FOUND',
+          message: 'Admin not found'
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    const daysUntilExpiry = getDaysUntilExpiry(admin.passwordExpiresAt);
+    const expired = isPasswordExpired(admin.passwordExpiresAt);
+
+    res.json({
+      success: true,
+      data: {
+        passwordExpiresAt: admin.passwordExpiresAt,
+        daysUntilExpiry,
+        isExpired: expired,
+        mustChangePassword: admin.mustChangePassword
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Get password expiry error:', error);
+    res.status(500).json({
+      success: false,
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to get password expiry information'
+      },
+      timestamp: new Date().toISOString()
+    });
+  }
+};

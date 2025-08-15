@@ -7,6 +7,8 @@ interface Admin {
   fullName: string;
   role: 'SUPER_ADMIN' | 'ADMIN' | 'HR_MANAGER' | 'VIEWER';
   permissions: string[];
+  isActive?: boolean;
+  lastLogin?: string;
 }
 
 interface AuthContextType {
@@ -14,6 +16,7 @@ interface AuthContextType {
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  updateAdmin: (updatedAdmin: Admin) => void;
   loading: boolean;
   isAuthenticated: boolean;
 }
@@ -133,11 +136,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     axios.post('/auth/logout').catch(console.error);
   };
 
+  const updateAdmin = (updatedAdmin: Admin) => {
+    // Update localStorage
+    localStorage.setItem('admin', JSON.stringify(updatedAdmin));
+    
+    // Update state
+    setAdmin(updatedAdmin);
+  };
+
   const value: AuthContextType = {
     admin,
     token,
     login,
     logout,
+    updateAdmin,
     loading,
     isAuthenticated: !!admin && !!token
   };
