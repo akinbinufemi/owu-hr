@@ -23,9 +23,6 @@ export const schedulePasswordExpiryTasks = (): void => {
         console.log(`   - ${admin.email}: ${daysLeft} day(s) remaining`);
       });
     }
-  }, {
-    scheduled: true,
-    timezone: "UTC"
   });
 
   // Weekly summary on Mondays at 9 AM
@@ -42,9 +39,6 @@ export const schedulePasswordExpiryTasks = (): void => {
     if (stats.expired > 0 || stats.expiringSoon > 0) {
       console.log('⚠️  Action required: Some admin passwords need attention!');
     }
-  }, {
-    scheduled: true,
-    timezone: "UTC"
   });
 
   console.log('✅ Password expiry tasks scheduled');
