@@ -208,6 +208,8 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ onClose, onSuccess }) => 
                   onChange={(date) => setFormData(prev => ({ ...prev, dateOfBirth: date }))}
                   placeholder="Select date of birth"
                   name="dateOfBirth"
+                  type="birthdate"
+                  required
                 />
               </div>
 
@@ -410,6 +412,8 @@ const AddStaffModal: React.FC<AddStaffModalProps> = ({ onClose, onSuccess }) => 
                   onChange={(date) => setFormData(prev => ({ ...prev, dateOfJoining: date }))}
                   placeholder="Select joining date"
                   name="dateOfJoining"
+                  type="past"
+                  required
                 />
               </div>
 
@@ -546,7 +550,7 @@ const EditStaffModal: React.FC<EditStaffModalProps> = ({ staff, onClose, onSucce
   const [formData, setFormData] = useState({
     employeeId: staff.employeeId,
     fullName: staff.fullName,
-    dateOfBirth: staff.dateOfJoining ? new Date(staff.dateOfJoining).toISOString().split('T')[0] : '',
+    dateOfBirth: staff.dateOfBirth ? new Date(staff.dateOfBirth).toISOString().split('T')[0] : '',
     gender: 'MALE',
     maritalStatus: 'SINGLE',
     nationality: 'Nigerian',

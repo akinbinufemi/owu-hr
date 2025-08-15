@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import DatePicker from '../components/ui/DatePicker';
 import axios from 'axios';
 
 interface Staff {
@@ -429,12 +430,13 @@ const StaffProfile: React.FC = () => {
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
                                             Date of Birth
                                         </label>
-                                        <input
-                                            type="date"
-                                            name="dateOfBirth"
+                                        <DatePicker
                                             value={editFormData.dateOfBirth}
-                                            onChange={handleEditInputChange}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                            onChange={(date) => setEditFormData(prev => ({ ...prev, dateOfBirth: date }))}
+                                            placeholder="Select date of birth"
+                                            name="dateOfBirth"
+                                            type="birthdate"
+                                            className="w-full"
                                         />
                                     </div>
 
@@ -627,12 +629,13 @@ const StaffProfile: React.FC = () => {
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
                                             Date of Joining
                                         </label>
-                                        <input
-                                            type="date"
-                                            name="dateOfJoining"
+                                        <DatePicker
                                             value={editFormData.dateOfJoining}
-                                            onChange={handleEditInputChange}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                                            onChange={(date) => setEditFormData(prev => ({ ...prev, dateOfJoining: date }))}
+                                            placeholder="Select joining date"
+                                            name="dateOfJoining"
+                                            type="past"
+                                            className="w-full"
                                         />
                                     </div>
 
