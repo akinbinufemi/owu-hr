@@ -9,6 +9,10 @@ async function main() {
   // Create admin user
   const hashedPassword = await bcrypt.hash('admin123', 10);
   
+  // Set password expiry (90 days from now)
+  const now = new Date();
+  const passwordExpiresAt = new Date(now.getTime() + (90 * 24 * 60 * 60 * 1000));
+
   const admin = await prisma.admin.upsert({
     where: { email: 'admin@owupalace.com' },
     update: {
@@ -17,6 +21,9 @@ async function main() {
       role: 'SUPER_ADMIN',
       permissions: ['manage_staff', 'manage_payroll', 'manage_loans', 'manage_issues', 'view_reports', 'manage_files', 'manage_users', 'system_settings'],
       isActive: true,
+      passwordChangedAt: now,
+      passwordExpiresAt: passwordExpiresAt,
+      mustChangePassword: false,
     },
     create: {
       email: 'admin@owupalace.com',
@@ -25,6 +32,9 @@ async function main() {
       role: 'SUPER_ADMIN',
       permissions: ['manage_staff', 'manage_payroll', 'manage_loans', 'manage_issues', 'view_reports', 'manage_files', 'manage_users', 'system_settings'],
       isActive: true,
+      passwordChangedAt: now,
+      passwordExpiresAt: passwordExpiresAt,
+      mustChangePassword: false,
     },
   });
 
