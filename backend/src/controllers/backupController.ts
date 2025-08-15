@@ -230,17 +230,34 @@ export const restoreBackup = async (req: AuthRequest, res: Response) => {
     try {
       backupData = await fileManager.loadBackupFile(file.path);
     } catch (parseError) {
+      console.error('Backup file parsing error:', parseError);
+      
       // Clean up uploaded file
       const fs = require('fs');
       if (fs.existsSync(file.path)) {
         fs.unlinkSync(file.path);
       }
 
+      // Provide more specific error message
+      let errorMessage = 'Invalid backup file format or corrupted data';
+      if (parseError instanceof Error) {
+        if (parseError.message.includes('Unexpected token')) {
+          errorMessage = 'Invalid JSON format in backup file';
+        } else if (parseError.message.includes('ZIP')) {
+          errorMessage = 'Failed to extract ZIP backup file';
+        } else if (parseError.message.includes('No backup JSON file found')) {
+          errorMessage = 'ZIP file does not contain a valid backup';
+        } else {
+          errorMessage = parseError.message;
+        }
+      }
+
       return res.status(400).json({
         success: false,
         error: {
           code: 'INVALID_BACKUP_FILE',
-          message: 'Invalid backup file format or corrupted data'
+          message: errorMessage,
+          details: parseError instanceof Error ? parseError.message : 'Unknown parsing error'
         },
         timestamp: new Date().toISOString()
       } as BackupResponse);
