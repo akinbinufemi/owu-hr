@@ -1,23 +1,52 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { strictRateLimit } from '../middleware/rateLimiting';
 
 const router = Router();
 const prisma = new PrismaClient();
 
-// Emergency database reseed endpoint
-router.post('/emergency-reseed', async (req, res) => {
-  try {
-    console.log('🚨 Emergency database reseed requested');
+// Security middleware for system endpoints
+const systemAuth = async (req: AuthRequest, res: any, next: any) => {
+  // Check for emergency access token
+  const emergencyToken = req.headers['x-emergency-token'] as string;
+  const validEmergencyToken = process.env.EMERGENCY_ACCESS_TOKEN;
+  
+  if (emergencyToken && validEmergencyToken && emergencyToken === validEmergencyToken) {
+    // Allow emergency access
+    return next();
+  }
 
-    // Check if this is a development/staging environment
-    const isDev = process.env.NODE_ENV !== 'production';
-    const allowReseed = process.env.ALLOW_EMERGENCY_RESEED === 'true';
-
-    if (!isDev && !allowReseed) {
+  // Otherwise require SUPER_ADMIN authentication
+  authenticateToken(req, res, (err: any) => {
+    if (err) return next(err);
+    
+    if (!req.admin || req.admin.role !== 'SUPER_ADMIN') {
       return res.status(403).json({
         success: false,
-        error: 'Emergency reseed not allowed in production without explicit permission'
+        error: 'Only SUPER_ADMIN users can access system endpoints'
+      });
+    }
+    
+    next();
+  });
+};
+
+// Emergency database reseed endpoint - SECURED
+router.post('/emergency-reseed', strictRateLimit, systemAuth, async (req: AuthRequest, res) => {
+  try {
+    console.log('🚨 Emergency database reseed requested by:', req.admin?.email || 'Emergency Token');
+
+    // Additional security check
+    const isDev = process.env.NODE_ENV !== 'production';
+    const allowReseed = process.env.ALLOW_EMERGENCY_RESEED === 'true';
+    const hasEmergencyToken = req.headers['x-emergency-token'] === process.env.EMERGENCY_ACCESS_TOKEN;
+
+    if (!isDev && !allowReseed && !hasEmergencyToken) {
+      return res.status(403).json({
+        success: false,
+        error: 'Emergency reseed not allowed in production without proper authorization'
       });
     }
 
@@ -180,8 +209,8 @@ router.post('/emergency-reseed', async (req, res) => {
   }
 });
 
-// Database status check endpoint
-router.get('/db-status', async (req, res) => {
+// Database status check endpoint - SECURED
+router.get('/db-status', strictRateLimit, systemAuth, async (req: AuthRequest, res) => {
   try {
     const adminCount = await prisma.admin.count();
     const staffCount = await prisma.staff.count();
