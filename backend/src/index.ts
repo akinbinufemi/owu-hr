@@ -16,6 +16,7 @@ import reportsRoutes from './routes/reports';
 import filesRoutes from './routes/files';
 import adminRoutes from './routes/admin';
 import backupRoutes from './routes/backup';
+import systemRoutes from './routes/system';
 import { schedulePasswordExpiryTasks } from './tasks/passwordExpiryTask';
 
 // Load environment variables
@@ -103,6 +104,7 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/files', filesRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/backup', backupRoutes);
+app.use('/api/system', systemRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
